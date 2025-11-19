@@ -1,0 +1,28 @@
+# Core dependencies
+fastapi==0.104.1
+uvicorn==0.24.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# Database
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.9
+alembic==1.12.1
+
+# Security
+python-jose==3.3.0
+passlib==1.7.4
+bcrypt==4.1.1
+python-multipart==0.0.6
+
+# Environment
+python-dotenv==1.0.0
+
+# AI Integration
+cerebras-cloud-sdk==1.7.1
+
+# Retry and resilience
+tenacity==8.2.3
+
+# HTTP client (for better timeout handling)
+httpx==0.25.2

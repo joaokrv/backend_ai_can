@@ -1,0 +1,100 @@
+# .gitignore for backend (FastAPI/Python) and repository-level common ignores
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+*.egg-info/
+*.egg
+*.whl
+build/
+dist/
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Python env
+.Python
+pyvenv.cfg
+
+# Unit test / coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+reports/
+
+# Mypy
+.mypy_cache/
+
+# Pyre
+.pyre/
+
+# Logs
+*.log
+logs/
+
+# Local env files
+.env
+.env.*
+env.local
+
+# Database
+*.sqlite3
+*.db
+
+# FastAPI/uvicorn
+*.pid
+
+# Frontend (if present in repo)
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+pnpm-lock.yaml
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Language specific
+*.class
+*.war
+*.jar
+
+# Python packaging metadata
+egg-info/
+.ropeproject
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# MacOS Finder
+.AppleDouble
+
+# End of backend .gitignore

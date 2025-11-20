@@ -13,36 +13,72 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 logger = logging.getLogger(__name__)
 JSON_EXAMPLE = '''{
-        "nome_da_rotina": "Texto",
-        "dias_de_treino": [
-            {
-                "foco_muscular": "Texto",
-                "identificacao": "Texto",
-                "exercicios": [
-                    {
-                        "nome": "Texto",
-                        "series": "Texto",
-                        "repeticoes": "Texto",
-                        "descanso_segundos": 0,
-                        "detalhes_execucao": "Texto puro",
-                        "video_url": "https://www.youtube.com/results?search_query=nome+do+exercicio"
-                    }
-                ]
-            }
-        ],
-        "sugestoes_nutricionais": {
-            "pre_treino": {
-                "opcao_economica": {
-                    "nome": "Texto",
-                    "custo_estimado": "Texto",
-                    "ingredientes": ["item1", "item2"],
-                    "link_receita": "https://www.google.com/search?q=nome+da+receita",
-                    "explicacao": "Texto puro"
+    "nome_da_rotina": "Programa de Hipertrofia",
+    "dias_de_treino": [
+        {
+            "foco_muscular": "Peito e Tríceps",
+            "identificacao": "Dia A",
+            "exercicios": [
+                {
+                    "nome": "Supino reto com barra",
+                    "series": "4x",
+                    "repeticoes": "8-12",
+                    "descanso_segundos": 90,
+                    "detalhes_execucao": "Manter os ombros retraídos e controlar o movimento",
+                    "video_url": "https://www.youtube.com/results?search_query=supino+reto+barra"
                 }
-            },
-            "pos_treino": {}
+            ]
         }
-    }'''
+    ],
+    "sugestoes_nutricionais": {
+        "pre_treino": {
+            "opcao_economica": {
+                "nome": "Banana com aveia",
+                "custo_estimado": "R$ 3,00",
+                "ingredientes": ["1 banana", "2 colheres de aveia", "1 copo de água"],
+                "link_receita": "https://www.google.com/search?q=banana+com+aveia",
+                "explicacao": "Combinação rápida de carboidratos para energia"
+            },
+            "opcao_equilibrada": {
+                "nome": "Pão integral com pasta de amendoim",
+                "custo_estimado": "R$ 5,00",
+                "ingredientes": ["2 fatias de pão integral", "2 colheres de pasta de amendoim"],
+                "link_receita": "https://www.google.com/search?q=pao+integral+pasta+amendoim",
+                "explicacao": "Carboidratos e gorduras saudáveis"
+            },
+            "opcao_premium": {
+                "nome": "Tapioca com queijo e peito de peru",
+                "custo_estimado": "R$ 8,00",
+                "ingredientes": ["3 colheres de goma de tapioca", "30g queijo branco", "50g peito de peru"],
+                "link_receita": "https://www.google.com/search?q=tapioca+queijo+peru",
+                "explicacao": "Proteínas e carboidratos de qualidade"
+            }
+        },
+        "pos_treino": {
+            "opcao_economica": {
+                "nome": "Arroz com ovo",
+                "custo_estimado": "R$ 4,00",
+                "ingredientes": ["1 xícara de arroz", "2 ovos", "sal a gosto"],
+                "link_receita": "https://www.google.com/search?q=arroz+com+ovo",
+                "explicacao": "Proteína e carboidratos para recuperação"
+            },
+            "opcao_equilibrada": {
+                "nome": "Frango grelhado com batata doce",
+                "custo_estimado": "R$ 7,00",
+                "ingredientes": ["150g frango", "200g batata doce", "temperos"],
+                "link_receita": "https://www.google.com/search?q=frango+batata+doce",
+                "explicacao": "Refeição completa para recuperação muscular"
+            },
+            "opcao_premium": {
+                "nome": "Salmão com quinoa e legumes",
+                "custo_estimado": "R$ 15,00",
+                "ingredientes": ["150g salmão", "1 xícara quinoa", "legumes variados"],
+                "link_receita": "https://www.google.com/search?q=salmao+quinoa+legumes",
+                "explicacao": "Ômega-3 e proteínas de alto valor biológico"
+            }
+        }
+    }
+}'''
 
 _gemini_client = None
 
@@ -130,25 +166,26 @@ def generate_training_plan(
     objetivo_descricao = objetivo_map.get(objetivo, objetivo)
 
     prompt_template = Template("""
-        Você é uma API de backend: receba os dados do usuário e retorne apenas um objeto JSON (sem texto adicional).
+        Você é uma API de backend. Retorne APENAS um objeto JSON válido, sem texto antes ou depois.
 
-        --- DADOS DO USUÁRIO ---
-        Nome: $NOME
-        Altura: $ALTURA cm
-        Peso: $PESO kg
-        Idade: $IDADE anos
-        IMC: $IMC
-        Frequência: $FREQUENCIA x/semana
-        Local: $LOCAL
-        Objetivo: $OBJETIVO
+        DADOS DO USUÁRIO:
+        - Nome: $NOME
+        - Altura: $ALTURA cm
+        - Peso: $PESO kg
+        - Idade: $IDADE anos
+        - IMC: $IMC
+        - Frequência: $FREQUENCIA x/semana
+        - Local: $LOCAL
+        - Objetivo: $OBJETIVO
 
-        --- REGRAS DE CONTEÚDO ---
-        1) Gere uma divisão de treino apropriada para $FREQUENCIA x/semana;
-        2) Cada dia deve conter 5-6 exercícios com: nome, séries, repetições, descanso_segundos (int), detalhes_execucao (texto), e video_url;
-        3) video_url deve ser uma URL de PESQUISA do YouTube (ex: https://www.youtube.com/results?search_query=nome+do+exercicio);
-        4) Inclua sugestões nutricionais (pre/pos) com 3 opções: economica, equilibrada, premium; cada refeição precisa de nome, custo_estimado, ingredientes (lista), link_receita (URL de pesquisa Google) e explicacao;
+        INSTRUÇÕES:
+        1. Gere uma divisão de treino para $FREQUENCIA x/semana
+        2. Cada dia: 5-6 exercícios com nome, series (texto), repeticoes (texto), descanso_segundos (número inteiro), detalhes_execucao, video_url
+        3. video_url: https://www.youtube.com/results?search_query=nome+do+exercicio
+        4. Sugestões nutricionais (pre_treino e pos_treino): 3 opções cada (opcao_economica, opcao_equilibrada, opcao_premium)
+        5. Cada refeição: nome, custo_estimado, ingredientes (array), link_receita, explicacao
 
-        --- REGRAS DE FORMATAÇÃO E SEGURANÇA (OBRIGATÓRIO) ---
+        REGRAS CRÍTICAS:
         - A resposta deve ser EXCLUSIVAMENTE o JSON bruto, sem Markdown nem texto;
         - NÃO escreva introduções, notas ou conclusões; comece com "{" e termine com "}";
         - Strings apenas com texto puro (sem HTML ou formatação);
@@ -174,16 +211,17 @@ def generate_training_plan(
         logger.info(f"Gerando plano de treino para {nome}")
         response_text = _call_gemini_api(prompt)
         
+        # Remove markdown
         response_text = response_text.strip()
         if response_text.startswith("```json"):
             response_text = response_text[7:]
-        if response_text.startswith("```"):
+        elif response_text.startswith("```"):
             response_text = response_text[3:]
         if response_text.endswith("```"):
             response_text = response_text[:-3]
         response_text = response_text.strip()
         
-
+        # Extrai JSON do texto
         def extract_json_from_text(text: str) -> str:
             start = text.find("{")
             end = text.rfind("}")
@@ -192,6 +230,9 @@ def generate_training_plan(
             return text[start : end + 1]
 
         raw_json_text = extract_json_from_text(response_text)
+        
+        raw_json_text = re.sub(r',\s*}', '}', raw_json_text)
+        raw_json_text = re.sub(r',\s*]', ']', raw_json_text)
 
         plano = json.loads(raw_json_text)
 
@@ -238,7 +279,8 @@ def generate_training_plan(
         
     except json.JSONDecodeError as e:
         logger.error(f"Resposta da IA não é JSON válido: {e}")
-        logger.debug(f"Resposta recebida: {response_text[:500]}...")
+        logger.error(f"JSON problemático (primeiros 1000 chars): {raw_json_text[:1000]}")
+        logger.error(f"Posição do erro: linha {e.lineno}, coluna {e.colno}")
         raise ValueError(
             "A IA retornou uma resposta inválida. Tente novamente."
         )

@@ -190,8 +190,6 @@ GEMINI_API_KEY=sua-chave-gemini-aqui
 DEBUG=True
 ```
 
-> ⚠️ Segurança: NÃO comite o arquivo `.env` em repositórios públicos. Use as configurações de Secrets do Render/Heroku/Netlify quando em produção. Se você já comitou credenciais por acidente, regenere as chaves (DB, API) o quanto antes.
-
 ### 5️⃣ Configure o Banco de Dados
 ```bash
 # Aplique migrações Alembic
@@ -260,27 +258,8 @@ uvicorn main:app --host 0.0.0.0 --port $PORT
 uvicorn main:app --host 0.0.0.0 --port $PORT
 ```
 
-Também selecione a versão do Python (por exemplo, `3.11`) em Settings → Runtime. Se usar uma versão diferente, adapte o ambiente.
-
-Se a deploy falhar por causa do `google-genai`, use a versão `1.51.0` (já fixada em `requirements.txt`). Verifique localmente com:
-
-```bash
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-python -c "from google import genai; print('OK', hasattr(genai, 'configure'))"
-```
-
-Se você já comitou `.env` com credenciais reais por engano, remova-o do repositório e regenere as chaves:
-
-```bash
-# mantenha o arquivo localmente, remova-o do repositório
-git rm --cached .env
-git commit -m "remove .env with secrets"
-git push
-
-# Em seguida, regenere as credenciais (DB, API) e atualize os Secrets no painel do Render
-```
+3. Adicione PostgreSQL (extensão na plataforma)
+4. Faça deploy da branch `main` ou `develop/backend.joao_carvalho`
 
 ### Opção 2: Docker
 

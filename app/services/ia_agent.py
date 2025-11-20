@@ -240,8 +240,8 @@ def generate_training_plan(
         def ensure_search_url(url: str, query: str, target: str) -> str:
             if not url:
                 if target == "youtube":
-                    return f"https://www.youtube.com/results?search_query={quote_plus(query)}"
-                return f"https://www.google.com/search?q={quote_plus(query)}"
+                    return f"https://www.youtube.com/results?search_query=como+fazer+{quote_plus(query)}"
+                return f"https://www.google.com/search?q=como+fazer+{quote_plus(query)}"
 
             if target == "youtube" and re.search(r"youtube\.com/results\?search_query=", url):
                 return url
@@ -249,8 +249,8 @@ def generate_training_plan(
                 return url
 
             if target == "youtube":
-                return f"https://www.youtube.com/results?search_query={quote_plus(query)}"
-            return f"https://www.google.com/search?q={quote_plus(query)}"
+                return f"https://www.youtube.com/results?search_query=como+fazer+{quote_plus(query)}"
+            return f"https://www.google.com/search?q=como+fazer+{quote_plus(query)}"
 
         if isinstance(plano, dict) and "dias_de_treino" in plano:
             for dia in plano.get("dias_de_treino", []):

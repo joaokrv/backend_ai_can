@@ -1,31 +1,29 @@
 # Core dependencies
-fastapi==0.104.1
-uvicorn==0.24.0
-pydantic==2.5.0
-pydantic-settings==2.1.0
+fastapi==0.115.0
+uvicorn==0.32.0
+pydantic==2.9.2
+pydantic-settings==2.6.0
 
 # Database
-sqlalchemy==2.0.23
-psycopg2-binary==2.9.9
-alembic==1.12.1
+sqlalchemy==2.0.36
+psycopg2-binary==2.9.10
+alembic==1.14.0
 
 # Security
-python-jose==3.3.0
-passlib==1.7.4
-bcrypt==4.1.1
-python-multipart==0.0.6
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.2.1
+python-multipart==0.0.20
 
 # Environment
-python-dotenv==1.0.0
+python-dotenv==1.0.1
 
 # AI Integration
 # Gemini (Google Generative AI)
-# NOTE: pin to an available PyPI version; 0.17.0 is no longer published on PyPI.
-# Use a recent 1.x release that is available on PyPI; test locally before deploying.
 google-genai==1.51.0
 
 # Retry and resilience
-tenacity==8.2.3
+tenacity==9.0.0
 
 # HTTP client (for better timeout handling)
-httpx==0.25.2
+httpx==0.28.1

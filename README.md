@@ -88,20 +88,22 @@ GET /health        # Verificação de saúde
 ```
 
 ### Geração de Planos de Treino
+
 ```bash
 POST /api/v1/sugestao
 ```
 
 **Body (JSON):**
+
 ```json
 {
   "nome": "João",
-  "altura": 180,          # cm
-  "peso": 80,             # kg
+  "altura": 180,
+  "peso": 80,
   "idade": 25,
-  "disponibilidade": 4,   # dias/semana
-  "local": "academia",    # "academia" | "casa" | "arLivre"
-  "objetivo": "hipertrofia" # "perder" | "ganhar" | "hipertrofia"
+  "disponibilidade": 4,
+  "local": "academia",
+  "objetivo": "hipertrofia"
 }
 ```
 
@@ -145,9 +147,10 @@ POST /api/v1/sugestao
 ## 🚀 Configuração e Instalação
 
 ### Pré-requisitos
-- **Python 3.10+**
+
+- **Python 3.10+** (recomendado: 3.11 ou 3.12)
 - **PostgreSQL 12+**
-- **pip** ou **venv**
+- **pip** e **venv**
 - **Chave API do Google Gemini** (obter em [Google AI Studio](https://aistudio.google.com))
 
 ### 1️⃣ Clone o Repositório
@@ -209,11 +212,10 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
 **A API estará disponível em:**
-- 🔗 **Aplicação**: http://localhost:8000
-- 📚 **Swagger (Docs)**: http://localhost:8000/docs
-- 📖 **ReDoc**: http://localhost:8000/redoc
 
----
+- 🔗 **Aplicação**: <http://localhost:8000>
+- 📚 **Swagger (Docs)**: <http://localhost:8000/docs>
+- 📖 **ReDoc**: <http://localhost:8000/redoc>
 
 ---
 
@@ -243,16 +245,7 @@ A API utiliza o **Google Gemini 2.5 Flash** para gerar planos de treino intelige
    - `GEMINI_API_KEY`
    - `SECRET_KEY`
 
-1. Defina o comando de inicialização:
-
-```bash
-uvicorn main:app --host 0.0.0.0 --port $PORT
-```
-
-1. Adicione PostgreSQL (extensão na plataforma)
-1. Faça deploy da branch `main` ou `develop/backend.joao_carvalho`
-
-> ⚠️ Nota para Render: certifique-se de usar **Build Command** como `pip install -r requirements.txt` e **Start Command** como:
+2. Defina o comando de inicialização:
 
 ```bash
 uvicorn main:app --host 0.0.0.0 --port $PORT
@@ -260,6 +253,11 @@ uvicorn main:app --host 0.0.0.0 --port $PORT
 
 3. Adicione PostgreSQL (extensão na plataforma)
 4. Faça deploy da branch `main` ou `develop/backend.joao_carvalho`
+
+> ⚠️ **Nota para Render**: 
+> - **Build Command**: `pip install -r requirements.txt`
+> - **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+> - **Python Version**: 3.11 ou 3.12 (configurar em Settings → Runtime)
 
 ### Opção 2: Docker
 

@@ -1,1 +1,4 @@
-# app/api/v1/endpoints/__init__.py
+"""Endpoints Package
+
+Define todos os endpoints específicos da API V1.
+"""

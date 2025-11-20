@@ -38,8 +38,8 @@ class SugestaoCreate(BaseModel):
     peso: float = Field(
         ...,
         gt=20,
-        lt=500,
-        description="Peso em kg (entre 20kg e 500kg)"
+        lt=300,
+        description="Peso em kg (entre 20kg e 300kg)"
     )
     idade: int = Field(
         ...,

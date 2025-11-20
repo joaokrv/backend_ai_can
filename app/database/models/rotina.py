@@ -8,7 +8,7 @@ class Rotina(Base):
     __tablename__ = "rotinas"
 
     id = Column(Integer, primary_key=True, index=True)
-    nome = Column(String, nullable=False)
+    nome = Column(String, nullable=False, index=True)
     descricao = Column(Text, nullable=True)
     usuario_id = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

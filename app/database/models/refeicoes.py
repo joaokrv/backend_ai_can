@@ -9,7 +9,7 @@ class Refeicao(Base):
     __tablename__ = "refeicoes"
 
     id = Column(Integer, primary_key=True, index=True)
-    nome = Column(String, nullable=False)
+    nome = Column(String(255), nullable=False, unique=True, index=True)
     custo_estimado = Column(String, nullable=True)  # Ex: baixo, médio, alto
     tipo = Column(String, nullable=True)  # Ex.: "pre" ou "pos" (pré-treino / pós-treino)
     nivel = Column(String, nullable=True)  # Ex.: "economica", "equilibrada", "premium"

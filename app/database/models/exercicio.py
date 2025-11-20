@@ -9,7 +9,7 @@ class Exercicio(Base):
     __tablename__ = "exercicios"
 
     id = Column(Integer, primary_key=True, index=True)
-    nome = Column(String, nullable=False)
+    nome = Column(String(255), nullable=False, unique=True, index=True)
     descricao = Column(Text, nullable=True)
     tipo = Column(String, nullable=True)  # Ex: cardio, força, flexibilidade
     nivel = Column(String, nullable=True)  # Ex: iniciante, intermediário, avançado

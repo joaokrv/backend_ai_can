@@ -1,47 +1,73 @@
 # app/services/ia_agent.py
-# A lógica que cruza dados e gera sugestões
 
-from cerebras.cloud.sdk import Cerebras
+from google import genai
 from app.core.config import settings
+from string import Template
+import re
+from urllib.parse import quote_plus
 import logging
 import json
 from typing import Dict, Any
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 logger = logging.getLogger(__name__)
+JSON_EXAMPLE = '''{
+        "nome_da_rotina": "Texto",
+        "dias_de_treino": [
+            {
+                "foco_muscular": "Texto",
+                "identificacao": "Texto",
+                "exercicios": [
+                    {
+                        "nome": "Texto",
+                        "series": "Texto",
+                        "repeticoes": "Texto",
+                        "descanso_segundos": 0,
+                        "detalhes_execucao": "Texto puro",
+                        "video_url": "https://www.youtube.com/results?search_query=nome+do+exercicio"
+                    }
+                ]
+            }
+        ],
+        "sugestoes_nutricionais": {
+            "pre_treino": {
+                "opcao_economica": {
+                    "nome": "Texto",
+                    "custo_estimado": "Texto",
+                    "ingredientes": ["item1", "item2"],
+                    "link_receita": "https://www.google.com/search?q=nome+da+receita",
+                    "explicacao": "Texto puro"
+                }
+            },
+            "pos_treino": {}
+        }
+    }'''
 
-# Cliente Cerebras (inicializado sob demanda)
-_cerebras_client = None
+_gemini_client = None
 
 
-def get_cerebras_client() -> Cerebras:
+def get_gemini_client() -> genai:
     """
-    Inicializa o cliente Cerebras com lazy loading.
+    Inicializa o cliente gemini com lazy loading.
     Garante que a API key está configurada corretamente.
-    
-    Returns:
-        Cerebras: Cliente inicializado
-    
-    Raises:
-        ValueError: Se CEREBRAS_API_KEY não estiver configurada
     """
-    global _cerebras_client
+    global _gemini_client
     
-    if _cerebras_client is None:
-        api_key = settings.CEREBRAS_API_KEY
+    if _gemini_client is None:
+        api_key = settings.GEMINI_API_KEY
         if not api_key:
             raise ValueError(
-                "CEREBRAS_API_KEY não configurada. "
-                "Configure em .env ou variáveis de ambiente."
+                "API_KEY não configurada."
             )
         try:
-            _cerebras_client = Cerebras(api_key=api_key)
-            logger.info("Cliente Cerebras inicializado com sucesso")
+            genai.configure(api_key=api_key)
+            _gemini_client = genai
+            logger.info("Cliente gemini inicializado com sucesso")
         except Exception as e:
-            logger.error(f"Erro ao inicializar Cerebras: {e}")
+            logger.error(f"Erro ao inicializar gemini: {e}")
             raise
     
-    return _cerebras_client
+    return _gemini_client
 
 
 @retry(
@@ -49,34 +75,60 @@ def get_cerebras_client() -> Cerebras:
     wait=wait_exponential(multiplier=1, min=2, max=10),
     reraise=True
 )
-def _call_cerebras_api(prompt: str) -> str:
+
+def _call_gemini_api(prompt: str) -> str:
     """
-    Chama a API Cerebras com retry automático.
-    
-    Args:
-        prompt: Prompt para enviar à IA
-    
-    Returns:
-        str: Resposta da API em formato texto
-    
-    Raises:
-        ValueError: Se houver erro na comunicação com a API
+    Chama a API gemini com retry automático.
     """
+
     try:
-        client = get_cerebras_client()
+        client = get_gemini_client()
         
-        response = client.chat.completions.create(
-            model="llama3.1-70b",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.7,
-            max_tokens=4096
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[{"type": "input_text", "text": prompt}],
+            temperature=0.15,
+            max_output_tokens=2048
         )
-        
-        logger.info("Resposta recebida da API Cerebras com sucesso")
-        return response.choices[0].message.content
+
+        response_text = None
+        if hasattr(response, "candidates") and response.candidates:
+            candidate = response.candidates[0]
+            if isinstance(candidate, dict):
+                response_text = (
+                    candidate.get("content")
+                    or candidate.get("text")
+                    or str(candidate)
+                )
+            else:
+                if hasattr(candidate, "content"):
+                    response_text = getattr(candidate, "content")
+                elif hasattr(candidate, "text"):
+                    response_text = getattr(candidate, "text")
+                else:
+                    response_text = str(candidate)
+
+        if response_text is None and hasattr(response, "output") and response.output:
+            try:
+                first_out = response.output[0]
+                if isinstance(first_out, dict):
+                    response_text = first_out.get("content", "")
+                else:
+                    response_text = str(first_out)
+            except Exception:
+                response_text = None
+
+        if response_text is None:
+            response_text = (
+                getattr(response, "output_text", None)
+                or getattr(response, "text", None)
+                or str(response)
+            )
+
+        return response_text
         
     except Exception as e:
-        logger.error(f"Erro ao chamar API Cerebras: {e}")
+        logger.error(f"Erro ao chamar API gemini: {e}")
         raise ValueError(f"Erro ao processar requisição com IA: {str(e)}")
 
 
@@ -89,34 +141,11 @@ def generate_training_plan(
     local: str,
     objetivo: str
 ) -> Dict[str, Any]:
-    """
-    Função principal do agente de IA que processa os dados
-    do usuário e retorna um plano de treino personalizado
-    com sugestões de refeições pré e pós-treino.
     
-    Args:
-        nome: Nome do usuário
-        altura: Altura em centímetros (ex: 175)
-        peso: Peso em kg
-        idade: Idade em anos
-        disponibilidade: Quantas vezes por semana (1-7)
-        local: Local de treino ("academia", "casa", "arLivre")
-        objetivo: Objetivo ("perder", "ganhar", "hipertrofia")
-    
-    Returns:
-        Dict: Plano de treino estruturado com exercícios e refeições
-    
-    Raises:
-        ValueError: Se os dados forem inválidos ou API falhar
-    """
-    
-    # Converter altura de cm para metros
     altura_metros = altura / 100
     
-    # Calcular IMC (peso / altura²)
     imc = peso / (altura_metros ** 2)
     
-    # Mapear valores do frontend para descrições legíveis
     local_map = {
         "academia": "Academia",
         "casa": "Em casa",
@@ -131,77 +160,52 @@ def generate_training_plan(
     
     local_descricao = local_map.get(local, local)
     objetivo_descricao = objetivo_map.get(objetivo, objetivo)
-    
-    # Construir prompt estruturado
-    prompt = f"""
-Você é um personal trainer e nutricionista especializado. Crie um plano de treino COMPLETO e DETALHADO em formato JSON para:
 
-**Perfil do Aluno:**
-- Nome: {nome}
-- Altura: {altura}cm ({altura_metros:.2f}m)
-- Peso: {peso}kg
-- Idade: {idade} anos
-- IMC: {imc:.2f}
-- Frequência: {disponibilidade}x por semana
-- Local: {local_descricao}
-- Objetivo: {objetivo_descricao}
+    prompt_template = Template("""
+        Você é uma API de backend: receba os dados do usuário e retorne apenas um objeto JSON (sem texto adicional).
 
-**Instruções:**
-1. Crie uma divisão de treino apropriada para {disponibilidade}x por semana
-2. Para cada dia de treino, inclua 5-6 exercícios específicos
-3. Cada exercício deve ter: nome, séries, repetições, descanso em segundos, detalhes de execução, e link do YouTube
-4. Inclua sugestões nutricionais pré e pós-treino com 3 opções cada (econômica, equilibrada, premium)
-5. Cada refeição deve ter: nome, custo estimado, ingredientes (array), link de receita, e explicação nutricional
+        --- DADOS DO USUÁRIO ---
+        Nome: $NOME
+        Altura: $ALTURA cm
+        Peso: $PESO kg
+        Idade: $IDADE anos
+        IMC: $IMC
+        Frequência: $FREQUENCIA x/semana
+        Local: $LOCAL
+        Objetivo: $OBJETIVO
 
-**IMPORTANTE:** Retorne APENAS o JSON, sem texto adicional antes ou depois.
+        --- REGRAS DE CONTEÚDO ---
+        1) Gere uma divisão de treino apropriada para $FREQUENCIA x/semana;
+        2) Cada dia deve conter 5-6 exercícios com: nome, séries, repetições, descanso_segundos (int), detalhes_execucao (texto), e video_url;
+        3) video_url deve ser uma URL de PESQUISA do YouTube (ex: https://www.youtube.com/results?search_query=nome+do+exercicio);
+        4) Inclua sugestões nutricionais (pre/pos) com 3 opções: economica, equilibrada, premium; cada refeição precisa de nome, custo_estimado, ingredientes (lista), link_receita (URL de pesquisa Google) e explicacao;
 
-**Formato JSON esperado:**
-{{
-  "nome_da_rotina": "Nome da divisão (ex: Divisão ABC)",
-  "dias_de_treino": [
-    {{
-      "identificacao": "Treino A - Segunda",
-      "foco_muscular": "Grupos musculares trabalhados",
-      "exercicios": [
-        {{
-          "nome": "Nome do exercício",
-          "series": "3-4",
-          "repeticoes": "10-12",
-          "descanso_segundos": 60,
-          "detalhes_execucao": "Como executar corretamente",
-          "video_url": "https://www.youtube.com/results?search_query=nome+do+exercicio"
-        }}
-      ]
-    }}
-  ],
-  "sugestoes_nutricionais": {{
-    "pre_treino": {{
-      "opcao_economica": {{
-        "nome": "Nome da refeição",
-        "custo_estimado": "Baixo/Médio/Alto",
-        "ingredientes": ["ingrediente1", "ingrediente2"],
-        "link_receita": "https://www.google.com/search?q=receita",
-        "explicacao": "Por que essa refeição é adequada"
-      }},
-      "opcao_equilibrada": {{ ... }},
-      "opcao_premium": {{ ... }}
-    }},
-    "pos_treino": {{
-      "opcao_economica": {{ ... }},
-      "opcao_equilibrada": {{ ... }},
-      "opcao_premium": {{ ... }}
-    }}
-  }}
-}}
-"""
+        --- REGRAS DE FORMATAÇÃO E SEGURANÇA (OBRIGATÓRIO) ---
+        - A resposta deve ser EXCLUSIVAMENTE o JSON bruto, sem Markdown nem texto;
+        - NÃO escreva introduções, notas ou conclusões; comece com "{" e termine com "}";
+        - Strings apenas com texto puro (sem HTML ou formatação);
+        - Se algum campo estiver ausente ou inválido, retorne um valor padrão (ex.: descanso_segundos = 60) em vez de texto explicativo.
+
+        --- FORMATO JSON (ordem importante) ---
+        $JSON_EXAMPLE
+    """)
+
+    prompt = prompt_template.substitute(
+                NOME=nome,
+                ALTURA=altura,
+                PESO=peso,
+                IDADE=idade,
+                IMC=f"{imc:.2f}",
+                FREQUENCIA=disponibilidade,
+                LOCAL=local_descricao,
+                OBJETIVO=objetivo_descricao,
+                JSON_EXAMPLE=JSON_EXAMPLE,
+            )
     
     try:
-        # Chamar API
         logger.info(f"Gerando plano de treino para {nome}")
-        response_text = _call_cerebras_api(prompt)
+        response_text = _call_gemini_api(prompt)
         
-        # Extrair JSON da resposta
-        # Remove markdown code blocks se existirem
         response_text = response_text.strip()
         if response_text.startswith("```json"):
             response_text = response_text[7:]
@@ -211,8 +215,55 @@ Você é um personal trainer e nutricionista especializado. Crie um plano de tre
             response_text = response_text[:-3]
         response_text = response_text.strip()
         
-        # Parse JSON
-        plano = json.loads(response_text)
+
+        def extract_json_from_text(text: str) -> str:
+            start = text.find("{")
+            end = text.rfind("}")
+            if start == -1 or end == -1 or end <= start:
+                return text
+            return text[start : end + 1]
+
+        raw_json_text = extract_json_from_text(response_text)
+
+        plano = json.loads(raw_json_text)
+
+        def ensure_search_url(url: str, query: str, target: str) -> str:
+            if not url:
+                if target == "youtube":
+                    return f"https://www.youtube.com/results?search_query={quote_plus(query)}"
+                return f"https://www.google.com/search?q={quote_plus(query)}"
+
+            if target == "youtube" and re.search(r"youtube\.com/results\?search_query=", url):
+                return url
+            if target == "google" and re.search(r"google\.com/search\?q=", url):
+                return url
+
+            if target == "youtube":
+                return f"https://www.youtube.com/results?search_query={quote_plus(query)}"
+            return f"https://www.google.com/search?q={quote_plus(query)}"
+
+        if isinstance(plano, dict) and "dias_de_treino" in plano:
+            for dia in plano.get("dias_de_treino", []):
+                for ex in dia.get("exercicios", []):
+                    nome_ex = ex.get("nome", "")
+                    descanso = ex.get("descanso_segundos")
+                    if isinstance(descanso, str) and descanso.isdigit():
+                        ex["descanso_segundos"] = int(descanso)
+                    elif not isinstance(descanso, int):
+                        ex["descanso_segundos"] = 60
+
+                    ex["video_url"] = ensure_search_url(
+                        ex.get("video_url"), nome_ex, "youtube"
+                    )
+
+        if isinstance(plano, dict) and "sugestoes_nutricionais" in plano:
+            for timing in ("pre_treino", "pos_treino"):
+                block = plano["sugestoes_nutricionais"].get(timing, {})
+                for key, meal in list(block.items()):
+                    nome_ref = meal.get("nome") or key
+                    meal["link_receita"] = ensure_search_url(
+                        meal.get("link_receita"), nome_ref, "google"
+                    )
         
         logger.info(f"Plano gerado com sucesso para {nome}")
         return plano

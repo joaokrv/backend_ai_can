@@ -1,189 +1,260 @@
-# 🏋️ AICan - Backend API
+# 🏋️ AICan — Backend (API REST)
 
-API REST para geração de planos de treino personalizados usando Inteligência Artificial (Cerebras AI).
+---
 
-## 📋 Sobre o Projeto
+## 📌 Sobre o Projeto
 
-O **AICan** é uma aplicação web que permite aos usuários gerarem planos de treino e dieta personalizados baseados em seus dados físicos e objetivos. A IA analisa as informações fornecidas (altura, peso, idade, disponibilidade, local de treino e objetivo) e retorna um plano completo e detalhado.
+O **AICan** é um sistema inteligente de geração automática de **planos de treino personalizados** e **recomendações nutricionais** baseado em integração com modelos de IA. 
 
-### ✨ Funcionalidades
+O objetivo é oferecer um **protótipo replicável** para pesquisas acadêmicas em personalização de exercícios, validando estratégias de recomendação baseadas em:
+- 📊 Dados físicos do usuário (altura, peso, idade, IMC)
+- 🎯 Preferências de treino (frequência, local, objetivo)
+- 🤖 Inteligência artificial (Google Gemini 2.5 Flash)
 
-- 🤖 Geração de planos de treino personalizados com IA
-- 📊 Análise de perfil físico (IMC, idade, objetivos)
-- 🏋️ Exercícios detalhados com séries, repetições e tempo de descanso
-- 🥗 Sugestões nutricionais pré e pós-treino (econômica, equilibrada, premium)
-- 🔗 Links para vídeos de demonstração dos exercícios
-- 📖 Documentação automática com Swagger UI
+---
 
-## 🛠️ Tecnologias Utilizadas
+## 🏗️ Arquitetura e Componentes
 
-- **FastAPI** - Framework web moderno e rápido
-- **Python 3.10+** - Linguagem de programação
-- **Cerebras AI** - API de Inteligência Artificial
-- **PostgreSQL** - Banco de dados relacional
-- **SQLAlchemy** - ORM para Python
-- **Alembic** - Migrações de banco de dados
-- **Pydantic** - Validação de dados
-- **Tenacity** - Retry automático para APIs
+O backend foi desenvolvido em **Python** com **FastAPI** seguindo uma arquitetura **modular e escalável**:
 
-## 📁 Estrutura do Projeto
+| Componente | Descrição |
+|-----------|-----------|
+| **FastAPI** | Framework Web moderno, validação automática com Pydantic, documentação auto-gerada (Swagger) |
+| **SQLAlchemy** | ORM para interação com PostgreSQL, abstração do banco de dados |
+| **Alembic** | Versionamento e migração de schema do banco de dados |
+| **Google Gemini AI** | Integração com IA para geração inteligente de planos e sugestões |
+| **Pydantic** | Validação de dados, serialização JSON e type hints |
+| **Python-Jose + Passlib** | Segurança: JWT e hash de senhas |
+| **Tenacity** | Retry automático com backoff exponencial para chamadas à API |
 
-```
+---
+
+## 📁 Estrutura do Repositório
+
+```text
 backend/
+├── main.py                 # Entrada da aplicação, configuração FastAPI
+├── requirements.txt        # Dependências Python
+├── alembic.ini            # Configuração de migrações
+├── .env                   # Variáveis de ambiente (não commitar!)
+│
 ├── app/
-│   ├── api/
-│   │   ├── schemas/          # Validação de entrada/saída
-│   │   │   ├── sugestao.py   # Schema de sugestão
-│   │   │   ├── user.py
-│   │   │   └── ...
-│   │   └── v1/
-│   │       ├── routers.py    # Agregador de rotas
-│   │       └── endpoints/    # Endpoints da API
+│   ├── __init__.py
+│   ├── api/               # Camada de API REST
+│   │   ├── schemas/       # Modelos Pydantic (requisição/resposta)
+│   │   │   ├── exercicio.py
+│   │   │   ├── feedback.py
+│   │   │   ├── refeicao.py
+│   │   │   ├── rotina.py
+│   │   │   ├── sugestao.py
+│   │   │   └── user.py
+│   │   │
+│   │   └── v1/            # Versão 1 da API
+│   │       ├── routers.py # Registro de rotas
+│   │       └── endpoints/ # Endpoints específicos
 │   │           └── treino.py
-│   ├── core/
-│   │   ├── config.py         # Configurações e variáveis de ambiente
-│   │   └── security.py       # Autenticação e segurança
-│   ├── database/
-│   │   ├── base.py           # Conexão com banco
-│   │   └── models/           # Modelos SQLAlchemy
-│   └── services/
-│       └── ia_agent.py       # Integração com Cerebras AI
-├── migrations/               # Migrações do Alembic
-├── main.py                   # Ponto de entrada da aplicação
-├── requirements.txt          # Dependências
-└── README.md
+│   │
+│   ├── core/              # Configurações centrais
+│   │   ├── config.py      # Variáveis de ambiente
+│   │   └── security.py    # Autenticação, JWT
+│   │
+│   ├── database/          # Camada de dados
+│   │   ├── base.py        # Configuração SQLAlchemy
+│   │   └── models/        # Modelos ORM
+│   │       ├── user.py
+│   │       ├── exercicio.py
+│   │       ├── refeicoes.py
+│   │       ├── rotina.py
+│   │       └── feedback.py
+│   │
+│   └── services/          # Lógica de negócio
+│       ├── ia_agent.py    # Integração com Google Gemini
+│       └── coleta_dados.py
+│
+└── migrations/            # Histórico de migrações Alembic
+    ├── env.py
+    ├── script.py.mako
+    └── versions/          # Scripts de migração versionados
 ```
 
-## 🚀 Como Executar
+---
+
+## 🔌 Endpoints Disponíveis
+
+### Health Check
+```bash
+GET /              # Status geral da API
+GET /health        # Verificação de saúde
+```
+
+### Geração de Planos de Treino
+```bash
+POST /api/v1/sugestao
+```
+
+**Body (JSON):**
+```json
+{
+  "nome": "João",
+  "altura": 180,          # cm
+  "peso": 80,             # kg
+  "idade": 25,
+  "disponibilidade": 4,   # dias/semana
+  "local": "academia",    # "academia" | "casa" | "arLivre"
+  "objetivo": "hipertrofia" # "perder" | "ganhar" | "hipertrofia"
+}
+```
+
+**Response (JSON):**
+```json
+{
+  "nome_da_rotina": "Treino ABC",
+  "dias_de_treino": [
+    {
+      "foco_muscular": "Peito e Tríceps",
+      "identificacao": "Dia 1",
+      "exercicios": [
+        {
+          "nome": "Supino Reto",
+          "series": "4",
+          "repeticoes": "8-10",
+          "descanso_segundos": 120,
+          "detalhes_execucao": "Descrição técnica...",
+          "video_url": "https://www.youtube.com/results?search_query=supino+reto"
+        }
+      ]
+    }
+  ],
+  "sugestoes_nutricionais": {
+    "pre_treino": {
+      "opcao_economica": {
+        "nome": "Opção 1",
+        "custo_estimado": "R$ 5",
+        "ingredientes": ["item1", "item2"],
+        "link_receita": "https://www.google.com/search?q=...",
+        "explicacao": "..."
+      }
+    },
+    "pos_treino": { }
+  }
+}
+```
+
+---
+
+## 🚀 Configuração e Instalação
 
 ### Pré-requisitos
+- **Python 3.10+**
+- **PostgreSQL 12+**
+- **pip** ou **venv**
+- **Chave API do Google Gemini** (obter em [Google AI Studio](https://aistudio.google.com))
 
-- Python 3.10 ou superior
-- PostgreSQL 13+
-- Conta na [Cerebras AI](https://cloud.cerebras.ai/)
-- Git
-
-### 1. Clone o Repositório
-
+### 1️⃣ Clone o Repositório
 ```bash
-git clone https://github.com/seu-usuario/backend_ai_can.git
-cd backend_ai_can
+git clone https://github.com/joaokrv/backend_ai_can.git
+cd backend
 ```
 
-### 2. Crie um Ambiente Virtual
-
+### 2️⃣ Crie um Ambiente Virtual
 ```bash
-# Windows
+# Windows (PowerShell)
 python -m venv venv
-venv\Scripts\activate
+.\venv\Scripts\Activate.ps1
 
-# Linux/Mac
+# macOS/Linux
 python3 -m venv venv
 source venv/bin/activate
 ```
 
-### 3. Instale as Dependências
-
+### 3️⃣ Instale as Dependências
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Configure as Variáveis de Ambiente
+### 4️⃣ Configure as Variáveis de Ambiente
+Crie um arquivo `.env` na raiz do projeto:
+```env
+# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/aican
 
-Crie um arquivo `.env` na raiz do backend com suas credenciais.
+# Security
+SECRET_KEY=sua-chave-secreta-super-segura-aqui
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
 
-**⚠️ IMPORTANTE:** O arquivo `.env` nunca deve ser commitado no Git!
+# Gemini AI
+GEMINI_API_KEY=sua-chave-gemini-aqui
 
-### 5. Execute as Migrações do Banco (Opcional)
+# Debug
+DEBUG=True
+```
 
+### 5️⃣ Configure o Banco de Dados
 ```bash
-# Modo desenvolvimento (com auto-reload)
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+# Aplique migrações Alembic
+alembic upgrade head
 
-# Modo produção
+# Ou crie as tabelas manualmente (requer SQLAlchemy)
+python -c "from app.database.base import Base, engine; Base.metadata.create_all(engine)"
+```
+
+### 6️⃣ Execute a API
+```bash
+# Desenvolvimento (com auto-reload)
+uvicorn main:app --reload
+
+# Produção
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-O servidor estará disponível em: `http://localhost:8000`
+**A API estará disponível em:**
+- 🔗 **Aplicação**: http://localhost:8000
+- 📚 **Swagger (Docs)**: http://localhost:8000/docs
+- 📖 **ReDoc**: http://localhost:8000/redoc
 
-### Principais Endpoints
+---
 
-#### `POST /api/v1/sugestao/sugestao`
+---
 
-Gera um plano de treino personalizado.
+## 🤖 Integração com Google Gemini
 
-**Request Body:**
-```json
-{
-  "nome": "João Silva",
-  "altura": 175,
-  "peso": 80,
-  "idade": 30,
-  "disponibilidade": 3,
-  "local": "academia",
-  "objetivo": "hipertrofia"
-}
-```
+A API utiliza o **Google Gemini 2.5 Flash** para gerar planos de treino inteligentes. O serviço:
 
-**Response:** Plano de treino completo com exercícios e sugestões nutricionais.
+- 🔄 **Processa dados do usuário** (altura, peso, idade, objetivo)
+- 🧠 **Gera planos personalizados** com exercícios, séries e repetições
+- 🍽️ **Recomenda nutrição** com opções economica, equilibrada e premium
+- 🔗 **Fornece links** para vídeos no YouTube e receitas no Google
+- 🔁 **Implementa retry automático** com backoff exponencial para falhas
 
-#### `GET /health`
+**Arquivo principal:** `app/services/ia_agent.py`
 
-Verifica se a API está funcionando.
+**Recurso:** Função `generate_training_plan()` com prompt otimizado
 
-**Response:**
-```json
-{
-  "status": "healthy"
-}
-```
+---
 
-## 🔒 Segurança
+## 📤 Deployment
 
-### Boas Práticas Implementadas
+### Opção 1: Render, Railway ou Heroku
 
-✅ **Variáveis de ambiente** para credenciais sensíveis  
-✅ **Validação de entrada** com Pydantic  
-✅ **CORS configurado** para permitir apenas origens específicas  
-✅ **Logging estruturado** para auditoria  
-✅ **Retry automático** com backoff exponencial  
-✅ **Tratamento de erros** robusto  
-✅ **Type hints** em todo o código
+1. Configure as variáveis de ambiente na plataforma:
+   - `DEBUG=false`
+   - `DATABASE_URL` (PostgreSQL)
+   - `GEMINI_API_KEY`
+   - `SECRET_KEY`
 
-### ⚠️ Checklist de Segurança
-
-Antes de fazer deploy em produção:
-
-- [ ] Arquivo `.env` está no `.gitignore`
-- [ ] Credenciais não estão hardcoded no código
-- [ ] `DEBUG=False` em produção
-- [ ] CORS configurado apenas para domínios confiáveis
-- [ ] HTTPS habilitado
-- [ ] Variáveis de ambiente configuradas no servidor
-
-## 🧪 Testes
+2. Defina o comando de inicialização:
 
 ```bash
-# Executar testes (quando implementado)
-pytest
-
-# Com coverage
-pytest --cov=app tests/
+uvicorn main:app --host 0.0.0.0 --port $PORT
 ```
 
-## 📦 Deploy
+3. Adicione PostgreSQL (extensão na plataforma)
+4. Faça deploy da branch `main` ou `develop/backend.joao_carvalho`
 
-### Render / Heroku / Railway
+### Opção 2: Docker
 
-1. Configure as variáveis de ambiente no painel da plataforma
-2. Defina o comando de start:
-   ```
-   uvicorn main:app --host 0.0.0.0 --port $PORT
-   ```
-3. Configure o banco PostgreSQL
-4. Faça deploy da branch `main`
-
-### Docker (Opcional)
+Crie um `Dockerfile`:
 
 ```dockerfile
 FROM python:3.10-slim
@@ -198,48 +269,163 @@ COPY . .
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
+Construa e execute:
+
 ```bash
 docker build -t aican-backend .
 docker run -p 8000:8000 --env-file .env aican-backend
 ```
 
-## 🐛 Troubleshooting
+### Opção 3: Bare Metal / VPS
 
-### Erro: "CEREBRAS_API_KEY não configurada"
-
-**Solução:** Verifique se o arquivo `.env` existe e contém a chave `CEREBRAS_API_KEY`.
-
-### Erro: "Connection refused" ao banco
-
-**Solução:** Verifique se o PostgreSQL está rodando e se a `DATABASE_URL` está correta.
-
-### Erro: "Module not found"
-
-**Solução:** Certifique-se de que o ambiente virtual está ativado e as dependências instaladas:
 ```bash
+# 1. SSH na máquina
+ssh user@seu-servidor.com
+
+# 2. Clone o repositório
+git clone https://github.com/joaokrv/backend_ai_can.git
+cd backend
+
+# 3. Configure ambiente
+python -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
+
+# 4. Configure .env com suas credenciais
+
+# 5. Inicie com supervisord, systemd ou PM2
+# Exemplo com PM2:
+pm2 start "uvicorn main:app --host 0.0.0.0 --port 8000" --name aican-api
 ```
+
+---
+
+## 🧪 Testes
+
+Para adicionar testes unitários:
+
+```bash
+# Instale pytest
+pip install pytest pytest-asyncio
+
+# Crie testes em tests/ (exemplo)
+pytest tests/ -v
+```
+
+---
+
+## 📊 Estrutura de Dados
+
+### User
+
+- `id` (UUID)
+- `nome` (str)
+- `email` (str, único)
+- `altura` (float, cm)
+- `peso` (float, kg)
+- `idade` (int)
+- `criado_em` (datetime)
+
+### Rotina
+
+- `id` (UUID)
+- `user_id` (FK)
+- `nome` (str)
+- `descricao` (text)
+- `dias_treino` (int)
+- `criada_em` (datetime)
+
+### Exercício
+
+- `id` (UUID)
+- `rotina_id` (FK)
+- `nome` (str)
+- `séries` (int)
+- `repetições` (str)
+- `descanso` (int, segundos)
+
+---
+
+## ❓ Troubleshooting
+
+### Erro: `DATABASE_URL not configured`
+
+- Verifique se `.env` existe e contém `DATABASE_URL`
+- Certifique-se de que PostgreSQL está rodando
+- Teste a conexão: `psql <DATABASE_URL>`
+
+### Erro: `GEMINI_API_KEY not found`
+
+- Obtenha a chave em [Google AI Studio](https://aistudio.google.com)
+- Adicione ao arquivo `.env`
+- Reinicie a aplicação
+
+### Erro: `Connection refused on port 8000`
+
+- Verifique se a API não está rodando em outro processo
+- Tente outra porta: `uvicorn main:app --port 8001`
+- Verifique se não há firewall bloqueando
+
+### Erro: `CORS error`
+
+- Verifique `main.py` - configure `allow_origins` corretamente
+- Adicione a URL do frontend: `allow_origins=["http://seu-frontend.com"]`
+
+---
+
+## 📚 Recursos e Documentação
+
+- [FastAPI Docs](https://fastapi.tiangolo.com/)
+- [SQLAlchemy ORM](https://docs.sqlalchemy.org/)
+- [Alembic Migrations](https://alembic.sqlalchemy.org/)
+- [Google Gemini API](https://ai.google.dev/)
+- [Pydantic Validation](https://docs.pydantic.dev/)
+
+---
 
 ## 🤝 Contribuindo
 
 1. Fork o projeto
-2. Crie uma branch para sua feature (`git checkout -b feature/MinhaFeature`)
-3. Commit suas mudanças (`git commit -m 'Adiciona MinhaFeature'`)
-4. Push para a branch (`git push origin feature/MinhaFeature`)
-5. Abra um Pull Request
+2. Crie uma branch: `git checkout -b feature/MinhaFeature`
+3. Faça commits descritivos: `git commit -m 'Adiciona MinhaFeature'`
+4. Push para a branch: `git push origin feature/MinhaFeature`
+5. Abra um Pull Request com descrição clara
 
-## 📄 Licença
+**Guia de código:**
 
-Este projeto é um trabalho acadêmico desenvolvido para fins educacionais.
-
-## 👥 Autores
-
-- **Seu Nome** - [GitHub](https://github.com/joaokrv)
-
-## 📞 Suporte
-
-Para dúvidas ou problemas, abra uma [issue](https://github.com/joaokrv/backend_ai_can/issues) no GitHub.
+- Siga PEP 8
+- Use type hints
+- Documente funções
+- Escreva testes quando possível
 
 ---
 
-**Desenvolvido com ❤️ usando FastAPI e Cerebras AI**
+## 📄 Licença
+
+Trabalho acadêmico para fins educacionais.
+
+---
+
+## 👥 Autores
+
+- **João Victor Carvalho** - [GitHub](https://github.com/joaokrv)
+
+---
+
+## 🔄 Melhorias Futuras
+
+- [ ] Autenticação JWT completa
+- [ ] Histórico de planos por usuário
+- [ ] Cache de respostas da IA (Redis)
+- [ ] Rate limiting por usuário
+- [ ] Sistema de avaliação de planos
+- [ ] Integração com Stripe para planos premium
+- [ ] Notificações por email
+- [ ] Dashboard analytics
+- [ ] Suporte a múltiplos idiomas
+
+---
+
+## 📞 Suporte
+
+Para dúvidas ou problemas, abra uma **issue** no repositório.

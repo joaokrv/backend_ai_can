@@ -20,7 +20,9 @@ python-dotenv==1.0.0
 
 # AI Integration
 # Gemini (Google Generative AI)
-google-genai==0.17.0
+# NOTE: pin to an available PyPI version; 0.17.0 is no longer published on PyPI.
+# Use a recent 1.x release that is available on PyPI; test locally before deploying.
+google-genai==1.51.0
 
 # Retry and resilience
 tenacity==8.2.3

@@ -243,7 +243,16 @@ A API utiliza o **Google Gemini 2.5 Flash** para gerar planos de treino intelige
    - `GEMINI_API_KEY`
    - `SECRET_KEY`
 
-2. Defina o comando de inicialização:
+1. Defina o comando de inicialização:
+
+```bash
+uvicorn main:app --host 0.0.0.0 --port $PORT
+```
+
+1. Adicione PostgreSQL (extensão na plataforma)
+1. Faça deploy da branch `main` ou `develop/backend.joao_carvalho`
+
+> ⚠️ Nota para Render: certifique-se de usar **Build Command** como `pip install -r requirements.txt` e **Start Command** como:
 
 ```bash
 uvicorn main:app --host 0.0.0.0 --port $PORT

@@ -57,6 +57,11 @@ env.local
 *.sqlite3
 *.db
 
+# Alembic migrations
+# NOTE: migration files inside `migrations/versions/` should be tracked by Git (do NOT ignore them)
+# Ignore only compiled python files from migrations
+migrations/versions/*.pyc
+
 # FastAPI/uvicorn
 *.pid
 

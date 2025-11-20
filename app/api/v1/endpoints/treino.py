@@ -1,11 +1,13 @@
 # app/api/v1/endpoints/treino.py
 # Rotas de sugestão (o coração da aplicação)
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from sqlalchemy.orm import Session
 from app.api.schemas.sugestao import SugestaoCreate
 from app.api.schemas.feedback import FeedbackCreate
 from app.services.ia_agent import generate_training_plan
+from app.services.coleta_dados import salvar_exercicios_e_refeicoes, obter_estatisticas_coleta
+from app.database.base import get_db
 import logging
 from typing import Dict, Any
 
@@ -16,35 +18,15 @@ router = APIRouter()
 @router.post(
     "/sugestao",
     response_model=Dict[str, Any],
-    status_code=status.HTTP_200_OK,
+    status_code=status.HTTP_201_CREATED,
     summary="Gerar plano de treino personalizado",
-    description="Recebe dados do usuário e retorna plano de treino e dieta gerado por IA"
+    description="Recebe dados do usuário, gera plano com IA e salva no banco de dados"
 )
-async def obter_sugestao(dados: SugestaoCreate):
-    """
-    Gera um plano de treino personalizado baseado nos dados do usuário.
-    
-    **Parâmetros:**
-    - **nome**: Nome completo do usuário
-    - **altura**: Altura em metros (ex: 1.75)
-    - **peso**: Peso em kg (ex: 80)
-    - **idade**: Idade em anos (ex: 30)
-    - **disponibilidade**: Quantas vezes por semana pode treinar (1-7)
-    - **local**: Local de treino (academia, casa, arLivre)
-    - **objetivo**: Objetivo principal (perder, ganhar, hipertrofia)
-    
-    **Retorna:**
-    - Plano de treino completo com exercícios detalhados
-    - Sugestões nutricionais pré e pós-treino
-    
-    **Possíveis erros:**
-    - 400: Dados inválidos
-    - 500: Erro ao processar com IA
-    """
+async def obter_sugestao(dados: SugestaoCreate, db: Session = Depends(get_db)):
     try:
         logger.info(
             f"Gerando plano para {dados.nome}: "
-            f"{dados.idade}a, {dados.peso}kg, {dados.altura}m, "
+            f"{dados.idade}a, {dados.peso}kg, {dados.altura}cm, "
             f"{dados.disponibilidade}x/sem, {dados.local.value}, {dados.objetivo.value}"
         )
         
@@ -59,7 +41,24 @@ async def obter_sugestao(dados: SugestaoCreate):
         )
         
         logger.info(f"Plano gerado com sucesso para {dados.nome}")
-        return plano
+        
+        stats = salvar_exercicios_e_refeicoes(plano, db)
+        
+        logger.info(
+            f"Dados coletados: {stats['exercicios_salvos']} exercícios, "
+            f"{stats['refeicoes_salvas']} refeições"
+        )
+        
+        return {
+            "plano": plano,
+            "coleta_dados": {
+                "exercicios_salvos": stats['exercicios_salvos'],
+                "refeicoes_salvas": stats['refeicoes_salvas'],
+                "total": stats['total']
+            },
+            "status": "Plano gerado e dados coletados para treinamento de modelo",
+            "mensagem": f"Plano '{plano.get('nome_da_rotina')}' criado para {dados.nome}"
+        }
         
     except ValueError as e:
         logger.warning(f"Validação falhou: {e}")
@@ -75,17 +74,27 @@ async def obter_sugestao(dados: SugestaoCreate):
         )
 
 
-@router.post(
-    "/feedback",
-    status_code=status.HTTP_201_CREATED,
-    summary="Enviar feedback sobre sugestão"
+@router.get(
+    "/estatisticas",
+    response_model=Dict[str, Any],
+    status_code=status.HTTP_200_OK,
+    summary="Obter estatísticas de coleta de dados",
+    description="Retorna informações sobre exercícios e refeições coletadas para treinamento"
 )
-async def enviar_feedback(feedback: FeedbackCreate):
-    """
-    Endpoint para o usuário enviar feedback sobre a sugestão recebida.
-    
-    **Nota:** Implementação futura para salvar no banco de dados.
-    """
-    logger.info(f"Feedback recebido: usuário {feedback.usuario_id}")
-    # TODO: Implementar lógica para salvar feedback no banco
-    return {"message": "Feedback recebido com sucesso"}
+async def obter_stats(db: Session = Depends(get_db)):
+    try:
+        stats = obter_estatisticas_coleta(db)
+        
+        return {
+            "status": "sucesso",
+            "dados": stats,
+            "mensagem": f"Total de {stats.get('total_exercicios', 0)} exercícios e "
+                       f"{stats.get('total_refeicoes', 0)} refeições coletados"
+        }
+        
+    except Exception as e:
+        logger.error(f"Erro ao obter estatísticas: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro ao obter estatísticas. Tente novamente."
+        )

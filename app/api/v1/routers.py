@@ -2,7 +2,7 @@
 # Agrega todos os endpoints (rotas)
 
 from fastapi import APIRouter
-from app.api.v1.endpoints import user, treino
+from app.api.v1.endpoints import treino
 
 router = APIRouter()
 

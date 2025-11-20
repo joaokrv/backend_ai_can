@@ -16,7 +16,7 @@ router = APIRouter()
 
 
 @router.post(
-    "/sugestao",
+    "",
     response_model=Dict[str, Any],
     status_code=status.HTTP_201_CREATED,
     summary="Gerar plano de treino personalizado",
@@ -75,7 +75,7 @@ async def obter_sugestao(dados: SugestaoCreate, db: Session = Depends(get_db)):
 
 
 @router.get(
-    "/estatisticas",
+    "estatisticas",
     response_model=Dict[str, Any],
     status_code=status.HTTP_200_OK,
     summary="Obter estatísticas de coleta de dados",

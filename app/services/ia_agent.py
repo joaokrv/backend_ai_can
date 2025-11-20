@@ -1,6 +1,7 @@
 # app/services/ia_agent.py
 
-from google import genai
+from google.genai import types
+from google.genai.client import Client as GeminiClient
 from app.core.config import settings
 from string import Template
 import re
@@ -46,7 +47,7 @@ JSON_EXAMPLE = '''{
 _gemini_client = None
 
 
-def get_gemini_client() -> genai:
+def get_gemini_client() -> GeminiClient:
     """
     Inicializa o cliente gemini com lazy loading.
     Garante que a API key está configurada corretamente.
@@ -60,8 +61,7 @@ def get_gemini_client() -> genai:
                 "API_KEY não configurada."
             )
         try:
-            genai.configure(api_key=api_key)
-            _gemini_client = genai
+            _gemini_client = GeminiClient(api_key=api_key)
             logger.info("Cliente gemini inicializado com sucesso")
         except Exception as e:
             logger.error(f"Erro ao inicializar gemini: {e}")
@@ -85,47 +85,15 @@ def _call_gemini_api(prompt: str) -> str:
         client = get_gemini_client()
         
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=[{"type": "input_text", "text": prompt}],
-            temperature=0.15,
-            max_output_tokens=2048
+            model="gemini-2.0-flash-exp",
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.15,
+                max_output_tokens=2048
+            )
         )
 
-        response_text = None
-        if hasattr(response, "candidates") and response.candidates:
-            candidate = response.candidates[0]
-            if isinstance(candidate, dict):
-                response_text = (
-                    candidate.get("content")
-                    or candidate.get("text")
-                    or str(candidate)
-                )
-            else:
-                if hasattr(candidate, "content"):
-                    response_text = getattr(candidate, "content")
-                elif hasattr(candidate, "text"):
-                    response_text = getattr(candidate, "text")
-                else:
-                    response_text = str(candidate)
-
-        if response_text is None and hasattr(response, "output") and response.output:
-            try:
-                first_out = response.output[0]
-                if isinstance(first_out, dict):
-                    response_text = first_out.get("content", "")
-                else:
-                    response_text = str(first_out)
-            except Exception:
-                response_text = None
-
-        if response_text is None:
-            response_text = (
-                getattr(response, "output_text", None)
-                or getattr(response, "text", None)
-                or str(response)
-            )
-
-        return response_text
+        return response.text
         
     except Exception as e:
         logger.error(f"Erro ao chamar API gemini: {e}")

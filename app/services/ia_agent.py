@@ -125,7 +125,8 @@ def _call_gemini_api(prompt: str) -> str:
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.15,
-                max_output_tokens=2048
+                max_output_tokens=8192,
+                response_mime_type="application/json"
             )
         )
 
@@ -169,30 +170,30 @@ def generate_training_plan(
         Você é uma API de backend. Retorne APENAS um objeto JSON válido, sem texto antes ou depois.
 
         DADOS DO USUÁRIO:
-        - Nome: $NOME
-        - Altura: $ALTURA cm
-        - Peso: $PESO kg
-        - Idade: $IDADE anos
-        - IMC: $IMC
-        - Frequência: $FREQUENCIA x/semana
-        - Local: $LOCAL
-        - Objetivo: $OBJETIVO
+        Nome: $NOME | Altura: $ALTURA cm | Peso: $PESO kg | Idade: $IDADE anos
+        IMC: $IMC | Frequência: $FREQUENCIA x/semana | Local: $LOCAL | Objetivo: $OBJETIVO
 
-        INSTRUÇÕES:
-        1. Gere uma divisão de treino para $FREQUENCIA x/semana
-        2. Cada dia: 5-6 exercícios com nome, series (texto), repeticoes (texto), descanso_segundos (número inteiro), detalhes_execucao, video_url
-        3. video_url: https://www.youtube.com/results?search_query=nome+do+exercicio
-        4. Sugestões nutricionais (pre_treino e pos_treino): 3 opções cada (opcao_economica, opcao_equilibrada, opcao_premium)
-        5. Cada refeição: nome, custo_estimado, ingredientes (array), link_receita, explicacao
+        SUAS OBRIGAÇÕES:
+        1. Retornar EXCLUSIVAMENTE um JSON válido, sem introduções, comentários ou explicações
+        2. Gerar $FREQUENCIA dias de treino com 5-6 exercícios cada
+        3. Cada exercício: nome, series (texto), repeticoes (texto), descanso_segundos (número), detalhes_execucao, video_url
+        4. Incluir sugestões nutricionais com 3 opções cada (pre_treino e pos_treino)
+        5. VERIFICAR TÓDAS AS VÍRGULAS E CHAVES - JSON DEVE SER 100% VÁLIDO
 
-        REGRAS CRÍTICAS:
-        - A resposta deve ser EXCLUSIVAMENTE o JSON bruto, sem Markdown nem texto;
-        - NÃO escreva introduções, notas ou conclusões; comece com "{" e termine com "}";
-        - Strings apenas com texto puro (sem HTML ou formatação);
-        - Se algum campo estiver ausente ou inválido, retorne um valor padrão (ex.: descanso_segundos = 60) em vez de texto explicativo.
+        REGRAS CRÍTICAS DE JSON:
+        ✓ Use aspas duplas APENAS
+        ✓ TODAS as chaves e valores string com aspas duplas
+        ✓ Números SEM aspas: "descanso_segundos": 60 (não "60")
+        ✓ VERIFIQUE cada vírgula - não pode haver vírgula antes de } ou ]
+        ✓ CADA valor string deve estar entre aspas: "valor"
+        ✓ Arrays com [],  Objects com {}
+        ✓ Sem quebras de linha dentro de strings - usar espaços normais
+        ✗ Não adicione NADA fora do JSON
 
-        --- FORMATO JSON (ordem importante) ---
+        ESTRUTURA ESPERADA:
         $JSON_EXAMPLE
+
+        COMECE COM { E TERMINE COM } - NADA MAIS!
     """)
 
     prompt = prompt_template.substitute(
@@ -279,8 +280,11 @@ def generate_training_plan(
         
     except json.JSONDecodeError as e:
         logger.error(f"Resposta da IA não é JSON válido: {e}")
-        logger.error(f"JSON problemático (primeiros 1000 chars): {raw_json_text[:1000]}")
-        logger.error(f"Posição do erro: linha {e.lineno}, coluna {e.colno}")
+        logger.error(f"Posição do erro: caractere {e.pos}, coluna {e.colno}")
+        start = max(0, e.pos - 100)
+        end = min(len(raw_json_text), e.pos + 100)
+        logger.error(f"Contexto do erro: ...{raw_json_text[start:end]}...")
+        logger.error(f"JSON completo (primeiros 2000 chars): {raw_json_text[:2000]}")
         raise ValueError(
             "A IA retornou uma resposta inválida. Tente novamente."
         )

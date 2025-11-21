@@ -26,7 +26,7 @@ JSON_EXAMPLE = """{
                     "repeticoes": "Ex.: 8-12",
                     "descanso_segundos": 90,
                     "detalhes_execucao": "Ex.: Manter os ombros retraídos e controlar o movimento",
-                    "video_url": "Ex.: https://www.youtube.com/results?search_query=supino+reto+barra"
+                    "video_url": "Ex.: https://www.youtube.com/results?search_query=como+fazer+supino+reto+barra"
                 }
             ]
         }
@@ -37,21 +37,21 @@ JSON_EXAMPLE = """{
                 "nome": "Ex.: Banana com aveia",
                 "custo_estimado": "Ex.: R$ 3,00",
                 "ingredientes": ["Ex.: 1 banana", "Ex.: 2 colheres de aveia", "Ex.: 1 copo de água"],
-                "link_receita": "Ex.: https://www.google.com/search?q=banana+com+aveia",
+                "link_receita": "Ex.: https://www.google.com/search?q=como+fazer+banana+com+aveia",
                 "explicacao": "Ex.: Combinação rápida de carboidratos para energia"
             },
             "opcao_equilibrada": {
                 "nome": "Ex.: Pão integral com pasta de amendoim",
                 "custo_estimado": "Ex.: R$ 5,00",
                 "ingredientes": ["Ex.: 2 fatias de pão integral", "Ex.: 2 colheres de pasta de amendoim"],
-                "link_receita": "Ex.: https://www.google.com/search?q=pao+integral+pasta+amendoim",
+                "link_receita": "Ex.: https://www.google.com/search?q=como+fazer+pao+integral+pasta+amendoim",
                 "explicacao": "Ex.: Carboidratos e gorduras saudáveis"
             },
             "opcao_premium": {
                 "nome": "Ex.: Tapioca com queijo e peito de peru",
                 "custo_estimado": "Ex.: R$ 8,00",
                 "ingredientes": ["Ex.: 3 colheres de goma de tapioca", "Ex.: 30g queijo branco", "Ex.: 50g peito de peru"],
-                "link_receita": "Ex.: https://www.google.com/search?q=tapioca+queijo+peru",
+                "link_receita": "Ex.: https://www.google.com/search?q=como+fazer+tapioca+queijo+peru",
                 "explicacao": "Ex.: Proteínas e carboidratos de qualidade"
             }
         },
@@ -60,21 +60,21 @@ JSON_EXAMPLE = """{
                 "nome": "Ex.: Arroz com ovo",
                 "custo_estimado": "Ex.: R$ 4,00",
                 "ingredientes": ["Ex.: 1 xícara de arroz", "2 ovos", "sal a gosto"],
-                "link_receita": "Ex.: https://www.google.com/search?q=arroz+com+ovo",
+                "link_receita": "Ex.: https://www.google.com/search?q=como+fazer+arroz+com+ovo",
                 "explicacao": "Ex.: Proteína e carboidratos para recuperação"
             },
             "opcao_equilibrada": {
                 "nome": "Ex.: Frango grelhado com batata doce",
                 "custo_estimado": "Ex.: R$ 7,00",
                 "ingredientes": ["Ex.: 150g frango", "200g batata doce", "temperos"],
-                "link_receita": "Ex.: https://www.google.com/search?q=frango+batata+doce",
+                "link_receita": "Ex.: https://www.google.com/search?q=como+fazer+frango+batata+doce",
                 "explicacao": "Ex.: Refeição completa para recuperação muscular"
             },
             "opcao_premium": {
                 "nome": "Ex.: Salmão com quinoa e legumes",
                 "custo_estimado": "Ex.: R$ 15,00",
                 "ingredientes": ["Ex.: 150g salmão", "1 xícara quinoa", "legumes variados"],
-                "link_receita": "Ex.: https://www.google.com/search?q=salmao+quinoa+legumes",
+                "link_receita": "Ex.: https://www.google.com/search?q=como+fazer+salmao+quinoa+legumes",
                 "explicacao": "Ômega-3 e proteínas de alto valor biológico"
             }
         }
@@ -191,7 +191,7 @@ def generate_training_plan(
 
         OBSERVAÇÃO: Os valores dentro do JSON_EXAMPLE são APENAS exemplos de formato e valores;
         não limite as opções de receitas, nomes, ou campos similares apenas ao que aparece
-        nesse exemplo — gere variações e substitua valores por opções relevantes ao usuário.
+        nesse exemplo — gere variações e substitua valores por opções relevantes ao usuário. Você deve sugerir sugestões diferentes e variadas.
 
         COMECE COM { E TERMINE COM } - NADA MAIS!
     """

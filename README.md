@@ -423,13 +423,7 @@ Trabalho acadêmico para fins educacionais.
 
 - [ ] Autenticação JWT completa
 - [ ] Histórico de planos por usuário
-- [ ] Cache de respostas da IA (Redis)
 - [ ] Rate limiting por usuário
-- [ ] Sistema de avaliação de planos
-- [ ] Integração com Stripe para planos premium
-- [ ] Notificações por email
-- [ ] Dashboard analytics
-- [ ] Suporte a múltiplos idiomas
 
 ---
 

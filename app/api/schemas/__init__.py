@@ -1,5 +1,4 @@
 # app/api/schemas/__init__.py
-# Exportar todos os schemas
 
 from app.api.schemas.user import UserCreate, UserResponse, UserUpdate, Token, TokenData
 from app.api.schemas.feedback import FeedbackCreate, FeedbackResponse

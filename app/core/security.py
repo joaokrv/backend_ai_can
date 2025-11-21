@@ -1,5 +1,4 @@
 # app/core/security.py
-# Funções de hashing de senha, JWT, etc.
 
 from passlib.context import CryptContext
 from datetime import datetime, timedelta

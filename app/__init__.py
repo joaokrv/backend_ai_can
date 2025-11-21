@@ -3,7 +3,6 @@
 Este pacote contém toda a lógica da aplicação.
 """
 
-# Importar principais funcionalidades para facilitar imports
 from app.services.ia_agent import generate_training_plan
 from app.core.config import settings
 

@@ -15,38 +15,36 @@ from app.database.base import Base
 from app.database.models import user, exercicio, refeicoes, rotina, feedback
 from app.core.config import settings
 
-# this is the Alembic Config object, which provides
-# access to the values within the .ini file in use.
+# Este é o objeto de configuração do Alembic, que fornece
+# acesso aos valores definidos no arquivo .ini em uso.
 config = context.config
 
 # Sobrescreve a URL do banco com a do .env
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
-# Interpret the config file for Python logging.
-# This line sets up loggers basically.
+# Interpreta o arquivo de configuração para logging em Python.
+# Esta linha configura os loggers.
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# add your model's MetaData object here
-# for 'autogenerate' support
+# Adicione aqui o MetaData dos seus modelos
+# para suportar 'autogenerate'
 target_metadata = Base.metadata
 
-# other values from the config, defined by the needs of env.py,
-# can be acquired:
+# outros valores da configuração, conforme a necessidade do env.py,
+# podem ser obtidos assim:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
 
 
 def run_migrations_offline() -> None:
-    """Run migrations in 'offline' mode.
+    """Executa migrações em modo 'offline'.
 
-    This configures the context with just a URL
-    and not an Engine, though an Engine is acceptable
-    here as well.  By skipping the Engine creation
-    we don't even need a DBAPI to be available.
+    Configura o contexto apenas com a URL
+    e não cria um Engine; assim não é necessário ter um DBAPI disponível.
 
-    Calls to context.execute() here emit the given string to the
-    script output.
+    As chamadas a context.execute() aqui emitem a string no
+    output do script.
 
     """
     url = config.get_main_option("sqlalchemy.url")
@@ -62,10 +60,10 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    """Run migrations in 'online' mode.
+    """Executa migrações em modo 'online'.
 
-    In this scenario we need to create an Engine
-    and associate a connection with the context.
+    Neste cenário criamos um Engine e associamos
+    uma conexão ao contexto.
 
     """
     connectable = engine_from_config(

@@ -58,7 +58,7 @@ env.local
 *.db
 
 # Alembic migrations
-# NOTE: migration files inside `migrations/versions/` should be tracked by Git (do NOT ignore them)
+# OBS: os arquivos de migração dentro de `migrations/versions/` devem ser versionados no Git (NÃO os ignore)
 # Ignore only compiled python files from migrations
 migrations/versions/*.pyc
 

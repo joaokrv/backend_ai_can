@@ -20,6 +20,6 @@ class Refeicao(Base):
     link_receita = Column(String, nullable=True)  # URL para a receita detalhada
     explicacao = Column(
         Text, nullable=True
-    )  # Explicação sobre a refeição e seus benefícios
+    )
     rotina_id = Column(Integer, ForeignKey("rotinas.id"), nullable=True)
     rotina = relationship("Rotina", back_populates="sugestoes_nutricionais")

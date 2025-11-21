@@ -1,5 +1,4 @@
 # app/api/v1/endpoints/treino.py
-# Rotas de sugestão (o coração da aplicação)
 
 from fastapi import APIRouter, HTTPException, status
 from app.api.schemas.sugestao import SugestaoCreate

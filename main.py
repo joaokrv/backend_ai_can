@@ -27,10 +27,11 @@ app.add_middleware(
         "http://localhost:5500",
         "http://localhost:8080",
         "http://127.0.0.1:5500",
-        "http://192.168.1.42:5500"
+        "http://192.168.1.42:5500",
+        "https://frontend_ai_can.onrender.com"
     ],
     allow_credentials=True,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
 )
 

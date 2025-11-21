@@ -14,67 +14,67 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 logger = logging.getLogger(__name__)
 
 JSON_EXAMPLE = """{
-    "nome_da_rotina": "Programa de Hipertrofia",
+    "nome_da_rotina": "Ex.: Programa de Hipertrofia",
     "dias_de_treino": [
         {
-            "foco_muscular": "Peito e Tríceps",
-            "identificacao": "Dia A",
+            "foco_muscular": "Ex.: Peito e Tríceps",
+            "identificacao": "Ex.: Dia A",
             "exercicios": [
                 {
-                    "nome": "Supino reto com barra",
-                    "series": "4x",
-                    "repeticoes": "8-12",
+                    "nome": "Ex.: Supino reto com barra",
+                    "series": "Ex.: 4x",
+                    "repeticoes": "Ex.: 8-12",
                     "descanso_segundos": 90,
-                    "detalhes_execucao": "Manter os ombros retraídos e controlar o movimento",
-                    "video_url": "https://www.youtube.com/results?search_query=supino+reto+barra"
+                    "detalhes_execucao": "Ex.: Manter os ombros retraídos e controlar o movimento",
+                    "video_url": "Ex.: https://www.youtube.com/results?search_query=supino+reto+barra"
                 }
             ]
         }
     ],
     "sugestoes_nutricionais": {
         "pre_treino": {
-            "opcao_economica": {
-                "nome": "Banana com aveia",
-                "custo_estimado": "R$ 3,00",
-                "ingredientes": ["1 banana", "2 colheres de aveia", "1 copo de água"],
-                "link_receita": "https://www.google.com/search?q=banana+com+aveia",
-                "explicacao": "Combinação rápida de carboidratos para energia"
+                "opcao_economica": {
+                "nome": "Ex.: Banana com aveia",
+                "custo_estimado": "Ex.: R$ 3,00",
+                "ingredientes": ["Ex.: 1 banana", "Ex.: 2 colheres de aveia", "Ex.: 1 copo de água"],
+                "link_receita": "Ex.: https://www.google.com/search?q=banana+com+aveia",
+                "explicacao": "Ex.: Combinação rápida de carboidratos para energia"
             },
             "opcao_equilibrada": {
-                "nome": "Pão integral com pasta de amendoim",
-                "custo_estimado": "R$ 5,00",
-                "ingredientes": ["2 fatias de pão integral", "2 colheres de pasta de amendoim"],
-                "link_receita": "https://www.google.com/search?q=pao+integral+pasta+amendoim",
-                "explicacao": "Carboidratos e gorduras saudáveis"
+                "nome": "Ex.: Pão integral com pasta de amendoim",
+                "custo_estimado": "Ex.: R$ 5,00",
+                "ingredientes": ["Ex.: 2 fatias de pão integral", "Ex.: 2 colheres de pasta de amendoim"],
+                "link_receita": "Ex.: https://www.google.com/search?q=pao+integral+pasta+amendoim",
+                "explicacao": "Ex.: Carboidratos e gorduras saudáveis"
             },
             "opcao_premium": {
-                "nome": "Tapioca com queijo e peito de peru",
-                "custo_estimado": "R$ 8,00",
-                "ingredientes": ["3 colheres de goma de tapioca", "30g queijo branco", "50g peito de peru"],
-                "link_receita": "https://www.google.com/search?q=tapioca+queijo+peru",
-                "explicacao": "Proteínas e carboidratos de qualidade"
+                "nome": "Ex.: Tapioca com queijo e peito de peru",
+                "custo_estimado": "Ex.: R$ 8,00",
+                "ingredientes": ["Ex.: 3 colheres de goma de tapioca", "Ex.: 30g queijo branco", "Ex.: 50g peito de peru"],
+                "link_receita": "Ex.: https://www.google.com/search?q=tapioca+queijo+peru",
+                "explicacao": "Ex.: Proteínas e carboidratos de qualidade"
             }
         },
         "pos_treino": {
             "opcao_economica": {
-                "nome": "Arroz com ovo",
-                "custo_estimado": "R$ 4,00",
-                "ingredientes": ["1 xícara de arroz", "2 ovos", "sal a gosto"],
-                "link_receita": "https://www.google.com/search?q=arroz+com+ovo",
-                "explicacao": "Proteína e carboidratos para recuperação"
+                "nome": "Ex.: Arroz com ovo",
+                "custo_estimado": "Ex.: R$ 4,00",
+                "ingredientes": ["Ex.: 1 xícara de arroz", "2 ovos", "sal a gosto"],
+                "link_receita": "Ex.: https://www.google.com/search?q=arroz+com+ovo",
+                "explicacao": "Ex.: Proteína e carboidratos para recuperação"
             },
             "opcao_equilibrada": {
-                "nome": "Frango grelhado com batata doce",
-                "custo_estimado": "R$ 7,00",
-                "ingredientes": ["150g frango", "200g batata doce", "temperos"],
-                "link_receita": "https://www.google.com/search?q=frango+batata+doce",
-                "explicacao": "Refeição completa para recuperação muscular"
+                "nome": "Ex.: Frango grelhado com batata doce",
+                "custo_estimado": "Ex.: R$ 7,00",
+                "ingredientes": ["Ex.: 150g frango", "200g batata doce", "temperos"],
+                "link_receita": "Ex.: https://www.google.com/search?q=frango+batata+doce",
+                "explicacao": "Ex.: Refeição completa para recuperação muscular"
             },
             "opcao_premium": {
-                "nome": "Salmão com quinoa e legumes",
-                "custo_estimado": "R$ 15,00",
-                "ingredientes": ["150g salmão", "1 xícara quinoa", "legumes variados"],
-                "link_receita": "https://www.google.com/search?q=salmao+quinoa+legumes",
+                "nome": "Ex.: Salmão com quinoa e legumes",
+                "custo_estimado": "Ex.: R$ 15,00",
+                "ingredientes": ["Ex.: 150g salmão", "1 xícara quinoa", "legumes variados"],
+                "link_receita": "Ex.: https://www.google.com/search?q=salmao+quinoa+legumes",
                 "explicacao": "Ômega-3 e proteínas de alto valor biológico"
             }
         }
@@ -188,6 +188,10 @@ def generate_training_plan(
 
         ESTRUTURA ESPERADA:
         $JSON_EXAMPLE
+
+        OBSERVAÇÃO: Os valores dentro do JSON_EXAMPLE são APENAS exemplos de formato e valores;
+        não limite as opções de receitas, nomes, ou campos similares apenas ao que aparece
+        nesse exemplo — gere variações e substitua valores por opções relevantes ao usuário.
 
         COMECE COM { E TERMINE COM } - NADA MAIS!
     """

@@ -122,7 +122,7 @@ def _call_gemini_api(prompt: str) -> str:
             model="gemini-2.0-flash",
             contents=prompt,
             config=types.GenerateContentConfig(
-                temperature=0.3,
+                temperature=0.4,
                 max_output_tokens=8192,
                 response_mime_type="application/json",
             ),

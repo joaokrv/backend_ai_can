@@ -8,7 +8,7 @@ import logging
 # Configurar logging
 logging.basicConfig(
     level=logging.INFO if not settings.DEBUG else logging.DEBUG,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 
 logger = logging.getLogger(__name__)
@@ -18,7 +18,7 @@ app = FastAPI(
     description="API para geração de planos de treino personalizados com IA",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
 )
 
 # Configurar CORS para permitir requisições do frontend
@@ -41,11 +41,7 @@ app.include_router(v1_router, prefix="/api/v1")
 @app.get("/", tags=["Health"])
 async def root():
     """Endpoint de health check"""
-    return {
-        "status": "online",
-        "service": "AICan API",
-        "version": "1.0.0"
-    }
+    return {"status": "online", "service": "AICan API", "version": "1.0.0"}
 
 
 @app.get("/health", tags=["Health"])
@@ -56,9 +52,5 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=settings.DEBUG
-    )
+
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=settings.DEBUG)

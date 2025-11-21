@@ -105,4 +105,5 @@ class RotinaUpdate(BaseModel):
 
 class RotinaDetailResponse(RotinaResponse):
     """Resposta completa com todos os detalhes da rotina."""
+
     pass

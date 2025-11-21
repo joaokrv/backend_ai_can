@@ -14,8 +14,12 @@ class Rotina(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relações
-    dias = relationship("DiaTreino", back_populates="rotina", cascade="all, delete-orphan")
-    sugestoes_nutricionais = relationship("Refeicao", back_populates="rotina", cascade="all, delete-orphan")
+    dias = relationship(
+        "DiaTreino", back_populates="rotina", cascade="all, delete-orphan"
+    )
+    sugestoes_nutricionais = relationship(
+        "Refeicao", back_populates="rotina", cascade="all, delete-orphan"
+    )
 
 
 class DiaTreino(Base):
@@ -28,7 +32,9 @@ class DiaTreino(Base):
     ordem = Column(Integer, nullable=True)
 
     rotina = relationship("Rotina", back_populates="dias")
-    exercicios = relationship("RotinaExercicio", back_populates="dia", cascade="all, delete-orphan")
+    exercicios = relationship(
+        "RotinaExercicio", back_populates="dia", cascade="all, delete-orphan"
+    )
 
 
 class RotinaExercicio(Base):

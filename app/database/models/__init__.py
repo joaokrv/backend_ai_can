@@ -6,11 +6,11 @@ from app.database.models.refeicoes import Refeicao
 from app.database.models.rotina import Rotina, DiaTreino, RotinaExercicio
 
 __all__ = [
-	"User",
-	"Exercicio",
-	"Feedback",
-	"Refeicao",
-	"Rotina",
-	"DiaTreino",
-	"RotinaExercicio",
+    "User",
+    "Exercicio",
+    "Feedback",
+    "Refeicao",
+    "Rotina",
+    "DiaTreino",
+    "RotinaExercicio",
 ]

@@ -3,7 +3,11 @@
 
 from app.api.schemas.user import UserCreate, UserResponse, UserUpdate, Token, TokenData
 from app.api.schemas.feedback import FeedbackCreate, FeedbackResponse
-from app.api.schemas.exercicio import ExercicioCreate, ExercicioResponse, ExercicioUpdate
+from app.api.schemas.exercicio import (
+    ExercicioCreate,
+    ExercicioResponse,
+    ExercicioUpdate,
+)
 from app.api.schemas.rotina import (
     RotinaCreate,
     RotinaResponse,

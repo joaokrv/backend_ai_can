@@ -12,7 +12,8 @@ from typing import Dict, Any
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 logger = logging.getLogger(__name__)
-JSON_EXAMPLE = '''{
+
+JSON_EXAMPLE = """{
     "nome_da_rotina": "Programa de Hipertrofia",
     "dias_de_treino": [
         {
@@ -78,7 +79,7 @@ JSON_EXAMPLE = '''{
             }
         }
     }
-}'''
+}"""
 
 _gemini_client = None
 
@@ -89,29 +90,26 @@ def get_gemini_client() -> GeminiClient:
     Garante que a API key está configurada corretamente.
     """
     global _gemini_client
-    
+
     if _gemini_client is None:
         api_key = settings.GEMINI_API_KEY
         if not api_key:
-            raise ValueError(
-                "API_KEY não configurada."
-            )
+            raise ValueError("API_KEY não configurada.")
         try:
             _gemini_client = GeminiClient(api_key=api_key)
             logger.info("Cliente gemini inicializado com sucesso")
         except Exception as e:
             logger.error(f"Erro ao inicializar gemini: {e}")
             raise
-    
+
     return _gemini_client
 
 
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=2, max=10),
-    reraise=True
+    reraise=True,
 )
-
 def _call_gemini_api(prompt: str) -> str:
     """
     Chama a API gemini com retry automático.
@@ -119,19 +117,19 @@ def _call_gemini_api(prompt: str) -> str:
 
     try:
         client = get_gemini_client()
-        
+
         response = client.models.generate_content(
             model="gemini-2.0-flash",
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.3,
                 max_output_tokens=8192,
-                response_mime_type="application/json"
-            )
+                response_mime_type="application/json",
+            ),
         )
 
         return response.text
-        
+
     except Exception as e:
         logger.error(f"Erro ao chamar API gemini: {e}")
         raise ValueError(f"Erro ao processar requisição com IA: {str(e)}")
@@ -144,29 +142,27 @@ def generate_training_plan(
     idade: int,
     disponibilidade: int,
     local: str,
-    objetivo: str
+    objetivo: str,
 ) -> Dict[str, Any]:
-    
+
     altura_metros = altura / 100
-    
-    imc = peso / (altura_metros ** 2)
-    
-    local_map = {
-        "academia": "Academia",
-        "casa": "Em casa",
-        "arLivre": "Ao ar livre"
-    }
-    
+
+    imc = peso / (altura_metros**2)
+
+    local_map = {"academia": "Academia", "casa": "Em casa", "arLivre": "Ao ar livre"}
+
     objetivo_map = {
         "perder": "Perder peso",
         "ganhar": "Ganhar peso",
-        "hipertrofia": "Hipertrofia muscular"
+        "hipertrofia": "Hipertrofia muscular",
+        "definicao": "Definição muscular",
     }
-    
+
     local_descricao = local_map.get(local, local)
     objetivo_descricao = objetivo_map.get(objetivo, objetivo)
 
-    prompt_template = Template("""
+    prompt_template = Template(
+        """
         Você é uma API de backend. Retorne APENAS um objeto JSON válido, sem texto antes ou depois.
 
         DADOS DO USUÁRIO:
@@ -194,48 +190,70 @@ def generate_training_plan(
         $JSON_EXAMPLE
 
         COMECE COM { E TERMINE COM } - NADA MAIS!
-    """)
+    """
+    )
 
     prompt = prompt_template.substitute(
-                NOME=nome,
-                ALTURA=altura,
-                PESO=peso,
-                IDADE=idade,
-                IMC=f"{imc:.2f}",
-                FREQUENCIA=disponibilidade,
-                LOCAL=local_descricao,
-                OBJETIVO=objetivo_descricao,
-                JSON_EXAMPLE=JSON_EXAMPLE,
-            )
-    
+        NOME=nome,
+        ALTURA=altura,
+        PESO=peso,
+        IDADE=idade,
+        IMC=f"{imc:.2f}",
+        FREQUENCIA=disponibilidade,
+        LOCAL=local_descricao,
+        OBJETIVO=objetivo_descricao,
+        JSON_EXAMPLE=JSON_EXAMPLE,
+    )
+
     try:
         logger.info(f"Gerando plano de treino para {nome}")
         response_text = _call_gemini_api(prompt)
-        
-        # Remove markdown
-        response_text = response_text.strip()
-        if response_text.startswith("```json"):
-            response_text = response_text[7:]
-        elif response_text.startswith("```"):
-            response_text = response_text[3:]
-        if response_text.endswith("```"):
-            response_text = response_text[:-3]
-        response_text = response_text.strip()
-        
-        # Extrai JSON do texto
-        def extract_json_from_text(text: str) -> str:
-            start = text.find("{")
-            end = text.rfind("}")
-            if start == -1 or end == -1 or end <= start:
-                return text
-            return text[start : end + 1]
 
-        raw_json_text = extract_json_from_text(response_text)
-        
-        raw_json_text = re.sub(r',\s*}', '}', raw_json_text)
-        raw_json_text = re.sub(r',\s*]', ']', raw_json_text)
+        logger.debug(
+            f"Resposta bruta da IA (primeiros 500 chars): {response_text[:500]}"
+        )
 
-        plano = json.loads(raw_json_text)
+        try:
+            plano_dict = json.loads(response_text)
+        except json.JSONDecodeError as json_err:
+            logger.error("IA retornou JSON inválido")
+            logger.error(
+                f"Posição do erro: linha {json_err.lineno}, coluna {json_err.colno}"
+            )
+            logger.error(f"Mensagem: {json_err.msg}")
+
+            lines = response_text.split("\n")
+            if json_err.lineno <= len(lines):
+                error_line = lines[json_err.lineno - 1]
+                logger.error(f"Linha com erro: {error_line}")
+                logger.error(f"Posição: {' ' * (json_err.colno - 1)}^")
+
+            raise ValueError(
+                f"A IA retornou uma resposta com JSON inválido. "
+                f"Erro na linha {json_err.lineno}, coluna {json_err.colno}: {json_err.msg}"
+            )
+
+        if not isinstance(plano_dict, dict):
+            raise ValueError("Resposta da IA não é um objeto JSON válido")
+
+        if "nome_da_rotina" not in plano_dict:
+            raise ValueError("Campo obrigatório 'nome_da_rotina' ausente na resposta")
+
+        if "dias_de_treino" not in plano_dict:
+            raise ValueError("Campo obrigatório 'dias_de_treino' ausente na resposta")
+
+        if not isinstance(plano_dict["dias_de_treino"], list):
+            raise ValueError("Campo 'dias_de_treino' deve ser uma lista")
+
+        if len(plano_dict["dias_de_treino"]) == 0:
+            raise ValueError("Campo 'dias_de_treino' não pode estar vazio")
+
+        if "sugestoes_nutricionais" not in plano_dict:
+            raise ValueError(
+                "Campo obrigatório 'sugestoes_nutricionais' ausente na resposta"
+            )
+
+        plano = plano_dict
 
         def ensure_search_url(url: str, query: str, target: str) -> str:
             if not url:
@@ -243,7 +261,9 @@ def generate_training_plan(
                     return f"https://www.youtube.com/results?search_query=como+fazer+{quote_plus(query)}"
                 return f"https://www.google.com/search?q=como+fazer+{quote_plus(query)}"
 
-            if target == "youtube" and re.search(r"youtube\.com/results\?search_query=", url):
+            if target == "youtube" and re.search(
+                r"youtube\.com/results\?search_query=", url
+            ):
                 return url
             if target == "google" and re.search(r"google\.com/search\?q=", url):
                 return url
@@ -274,21 +294,14 @@ def generate_training_plan(
                     meal["link_receita"] = ensure_search_url(
                         meal.get("link_receita"), nome_ref, "google"
                     )
-        
-        logger.info(f"Plano gerado com sucesso para {nome}")
+
+        logger.info(f"Plano gerado e validado com sucesso para {nome}")
+        logger.info(f"Plano contém {len(plano['dias_de_treino'])} dias de treino")
         return plano
-        
-    except json.JSONDecodeError as e:
-        logger.error(f"Resposta da IA não é JSON válido: {e}")
-        logger.error(f"Posição do erro: caractere {e.pos}, coluna {e.colno}")
-        start = max(0, e.pos - 100)
-        end = min(len(raw_json_text), e.pos + 100)
-        logger.error(f"Contexto do erro: ...{raw_json_text[start:end]}...")
-        logger.error(f"JSON completo (primeiros 2000 chars): {raw_json_text[:2000]}")
-        raise ValueError(
-            "A IA retornou uma resposta inválida. Tente novamente."
-        )
-    
-    except Exception as e:
-        logger.error(f"Erro ao gerar plano: {e}")
+
+    except ValueError:
         raise
+
+    except Exception as e:
+        logger.error(f"Erro inesperado ao gerar plano: {e}")
+        raise ValueError(f"Erro ao processar resposta da IA: {str(e)}")

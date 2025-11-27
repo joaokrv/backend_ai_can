@@ -28,3 +28,6 @@ tenacity==9.0.0
 
 # HTTP client (for better timeout handling)
 httpx==0.28.1
+
+# Rate limiting
+slowapi==0.1.9

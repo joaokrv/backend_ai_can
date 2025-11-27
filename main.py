@@ -1,9 +1,12 @@
 # main.py
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.routers import router as v1_router
 from app.core.config import settings
 import logging
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 logging.basicConfig(
     level=logging.INFO if not settings.DEBUG else logging.DEBUG,
@@ -12,6 +15,9 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+# Configurar rate limiter
+limiter = Limiter(key_func=get_remote_address)
+
 app = FastAPI(
     title="AICan - Treino IA API",
     description="API para geração de planos de treino personalizados com IA",
@@ -19,6 +25,10 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+# Adicionar rate limiter
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,

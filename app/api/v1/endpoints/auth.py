@@ -1,8 +1,10 @@
 from typing import Any
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.core import security
 from app.core.config import settings
@@ -11,6 +13,9 @@ from app.api import deps
 from app.api.schemas.user import UserCreate, UserResponse, Token
 
 router = APIRouter()
+
+# Configurar limiter
+limiter = Limiter(key_func=get_remote_address)
 
 
 @router.post("/login", response_model=Token)
@@ -34,7 +39,9 @@ def login_access_token(
 
 
 @router.post("/register", response_model=UserResponse)
+@limiter.limit("3/hour")  # Máximo 3 cadastros por hora por IP
 def register_user(
+    request: Request,
     *,
     session: deps.SessionDep,
     user_in: UserCreate,

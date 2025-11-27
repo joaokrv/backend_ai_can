@@ -1,199 +1,70 @@
-"""
-Serviço para coletar e armazenar dados de exercícios e refeições retornados pela IA.
-
-Estes dados serão usados para treinar modelos de ML futuramente.
-"""
+# app/services/coleta_dados.py
 
 from sqlalchemy.orm import Session
-from app.database.models.exercicio import Exercicio
-from app.database.models.refeicoes import Refeicao
-from typing import Dict, Any, List
+from app.database.models.catalogo_exercicio import CatalogoExercicio
+from app.database.models.nutricao import CatalogoRefeicao
 import logging
-import json
 
 logger = logging.getLogger(__name__)
 
 
-def salvar_exercicios_e_refeicoes(plano: Dict[str, Any], db: Session) -> Dict[str, Any]:
+def salvar_exercicios_e_refeicoes(plano: dict, db: Session):
+    """
+    Salva exercícios e refeições únicos nas tabelas de catálogo.
+    """
+    logger.info("Iniciando coleta de exercícios e refeições para catálogo")
+    
+    novos_exercicios = 0
+    novas_refeicoes = 0
+
     try:
-        exercicios_salvos = 0
-        refeicoes_salvas = 0
+        # Coletar Exercícios
+        dias = plano.get("dias_de_treino", [])
+        for dia in dias:
+            exercicios = dia.get("exercicios", [])
+            for ex in exercicios:
+                nome = ex.get("nome")
+                if not nome:
+                    continue
+                
+                # Verifica se já existe no catálogo
+                existe = db.query(CatalogoExercicio).filter(CatalogoExercicio.nome == nome).first()
+                if not existe:
+                    novo_ex = CatalogoExercicio(
+                        nome=nome,
+                        descricao=ex.get("detalhes_execucao"),
+                        video_url=ex.get("video_url")
+                    )
+                    db.add(novo_ex)
+                    novos_exercicios += 1
 
-        logger.info("Iniciando coleta de exercícios e refeições para base de dados")
+        # Coletar Refeições
+        nutricao = plano.get("sugestoes_nutricionais", {})
+        for tipo in ["pre_treino", "pos_treino"]:
+            opcoes = nutricao.get(tipo, {})
+            for nivel, refeicao_data in opcoes.items():
+                nome = refeicao_data.get("nome")
+                if not nome:
+                    continue
 
-        exercicios_salvos = _salvar_exercicios(plano, db)
-        refeicoes_salvas = _salvar_refeicoes(plano, db)
+                # Verifica se já existe no catálogo
+                existe = db.query(CatalogoRefeicao).filter(CatalogoRefeicao.nome == nome).first()
+                
+                if not existe:
+                    nova_ref = CatalogoRefeicao(
+                        nome=nome,
+                        custo_estimado=refeicao_data.get("custo_estimado"),
+                        tipo=tipo,
+                        nivel=nivel,
+                        ingredientes=refeicao_data.get("ingredientes"),
+                        link_receita=refeicao_data.get("link_receita"),
+                        explicacao=refeicao_data.get("explicacao")
+                    )
+                    db.add(nova_ref)
+                    novas_refeicoes += 1
 
         db.commit()
-
-        stats = {
-            "exercicios_salvos": exercicios_salvos,
-            "refeicoes_salvas": refeicoes_salvas,
-            "total": exercicios_salvos + refeicoes_salvas,
-        }
-
-        logger.info(
-            f"Dados coletados com sucesso! "
-            f"Exercícios: {exercicios_salvos}, "
-            f"Refeições: {refeicoes_salvas}"
-        )
-
-        return stats
+        logger.info(f"Dados coletados! Novos Exercícios: {novos_exercicios}, Novas Refeições: {novas_refeicoes}")
 
     except Exception as e:
-        db.rollback()
-        logger.error(f"Erro ao coletar dados: {e}", exc_info=True)
-        raise
-
-
-def _salvar_exercicios(plano: Dict[str, Any], db: Session) -> int:
-    contador = 0
-    dias_treino = plano.get("dias_de_treino", [])
-
-    for dia_info in dias_treino:
-        exercicios_dia = dia_info.get("exercicios", [])
-
-        for exercicio_info in exercicios_dia:
-
-            nome = exercicio_info.get("nome", "").strip()
-
-            exercicio_existente = (
-                db.query(Exercicio).filter(Exercicio.nome == nome).first()
-            )
-
-            if exercicio_existente:
-                logger.debug(f"Exercício '{nome}' já existe no banco, pulando...")
-                continue
-
-            exercicio = Exercicio(
-                nome=nome,
-                descricao=exercicio_info.get("detalhes_execucao", ""),
-                tipo="treino",
-                nivel="intermediário",
-                video_url=exercicio_info.get("video_url", ""),
-            )
-
-            db.add(exercicio)
-            contador += 1
-
-            logger.debug(
-                f"Exercício '{nome}' adicionado para coleta "
-                f"(Series: {exercicio_info.get('series')}, "
-                f"Repetições: {exercicio_info.get('repeticoes')})"
-            )
-
-    db.flush()
-    return contador
-
-
-def _salvar_refeicoes(plano: Dict[str, Any], db: Session) -> int:
-    contador = 0
-    sugestoes_nut = plano.get("sugestoes_nutricionais", {})
-
-    tipos_refeicao = {"pre_treino": "pre_treino", "pos_treino": "pos_treino"}
-
-    for tipo_key, tipo_label in tipos_refeicao.items():
-        opcoes = sugestoes_nut.get(tipo_key, {})
-
-        niveis_map = {
-            "opcao_economica": "economica",
-            "economica": "economica",
-            "opcao_equilibrada": "equilibrada",
-            "equilibrada": "equilibrada",
-            "opcao_premium": "premium",
-            "premium": "premium",
-        }
-
-        for chave_original, refeicao_info in opcoes.items():
-
-            nome = refeicao_info.get("nome", "").strip()
-
-            if not nome:
-                continue
-
-            refeicao_existente = (
-                db.query(Refeicao).filter(Refeicao.nome == nome).first()
-            )
-
-            if refeicao_existente:
-                logger.debug(f"Refeição '{nome}' já existe no banco, pulando...")
-                continue
-
-            nivel = niveis_map.get(chave_original, "não-classificado")
-
-            refeicao = Refeicao(
-                nome=nome,
-                custo_estimado=refeicao_info.get("custo_estimado", ""),
-                tipo=tipo_label,  # "pre_treino" ou "pos_treino"
-                nivel=nivel,  # "economica", "equilibrada", "premium"
-                ingredientes=refeicao_info.get("ingredientes", []),
-                link_receita=refeicao_info.get("link_receita", ""),
-                explicacao=refeicao_info.get("explicacao", ""),
-                rotina_id=None,  # Sem relação com rotina/usuário
-            )
-
-            db.add(refeicao)
-            contador += 1
-
-            logger.debug(
-                f"Refeição '{nome}' ({tipo_label} - {nivel}) adicionada para coleta"
-            )
-
-    db.flush()
-    return contador
-
-
-def obter_estatisticas_coleta(db: Session) -> Dict[str, Any]:
-    try:
-        total_exercicios = db.query(Exercicio).count()
-
-        total_refeicoes = (
-            db.query(Refeicao).filter(Refeicao.rotina_id.is_(None)).count()
-        )
-
-        # Agrupar por tipo
-        pre_treino = (
-            db.query(Refeicao)
-            .filter(Refeicao.tipo == "pre_treino", Refeicao.rotina_id.is_(None))
-            .count()
-        )
-
-        pos_treino = (
-            db.query(Refeicao)
-            .filter(Refeicao.tipo == "pos_treino", Refeicao.rotina_id.is_(None))
-            .count()
-        )
-
-        # Agrupar por nível
-        economica = (
-            db.query(Refeicao)
-            .filter(Refeicao.nivel == "economica", Refeicao.rotina_id.is_(None))
-            .count()
-        )
-
-        equilibrada = (
-            db.query(Refeicao)
-            .filter(Refeicao.nivel == "equilibrada", Refeicao.rotina_id.is_(None))
-            .count()
-        )
-
-        premium = (
-            db.query(Refeicao)
-            .filter(Refeicao.nivel == "premium", Refeicao.rotina_id.is_(None))
-            .count()
-        )
-
-        return {
-            "total_exercicios": total_exercicios,
-            "total_refeicoes": total_refeicoes,
-            "refeicoes_por_tipo": {"pre_treino": pre_treino, "pos_treino": pos_treino},
-            "refeicoes_por_nivel": {
-                "economica": economica,
-                "equilibrada": equilibrada,
-                "premium": premium,
-            },
-        }
-
-    except Exception as e:
-        logger.error(f"Erro ao obter estatísticas: {e}")
-        return {}
+        logger.error(f"Erro ao coletar dados para catálogo: {e}")

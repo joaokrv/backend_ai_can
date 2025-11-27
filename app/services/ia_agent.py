@@ -8,8 +8,9 @@ import re
 from urllib.parse import quote_plus
 import logging
 import json
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from tenacity import retry, stop_after_attempt, wait_exponential
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +105,13 @@ def get_gemini_client() -> GeminiClient:
 
     return _gemini_client
 
+# Tenta inicializar na importação para evitar cold start
+try:
+    if settings.GEMINI_API_KEY:
+        get_gemini_client()
+except Exception:
+    pass # Falha silenciosa na importação, erro real aparecerá na chamada
+
 
 @retry(
     stop=stop_after_attempt(3),
@@ -122,7 +130,7 @@ def _call_gemini_api(prompt: str) -> str:
             model="gemini-2.0-flash",
             contents=prompt,
             config=types.GenerateContentConfig(
-                temperature=0.4,
+                temperature=0.5,
                 max_output_tokens=8192,
                 response_mime_type="application/json",
             ),
@@ -132,7 +140,65 @@ def _call_gemini_api(prompt: str) -> str:
 
     except Exception as e:
         logger.error(f"Erro ao chamar API gemini: {e}")
-        raise ValueError(f"Erro ao processar requisição com IA: {str(e)}")
+        if "429" in str(e):
+            raise ValueError("Serviço de IA sobrecarregado. Tente novamente em alguns instantes.")
+        if "500" in str(e) or "503" in str(e):
+            raise ValueError("Serviço de IA indisponível no momento.")
+        
+        raise ValueError(f"Erro na comunicação com IA: {str(e)}")
+
+
+def obter_preferencias_usuario(usuario_id: int, db: Session) -> dict:
+    """
+    Busca preferências do usuário baseadas em feedbacks anteriores.
+    
+    Args:
+        usuario_id: ID do usuário
+        db: Sessão do banco de dados
+    
+    Returns:
+        Dict com listas de exercícios e refeições que o usuário gostou/não gostou
+    """
+    from app.database.models.feedback import Feedback
+    
+    try:
+        feedbacks = db.query(Feedback).filter(
+            Feedback.usuario_id == usuario_id
+        ).all()
+        
+        preferencias = {
+            "exercicios_evitar": [],
+            "exercicios_preferidos": [],
+            "refeicoes_evitar": [],
+            "refeicoes_preferidas": []
+        }
+        
+        for feedback in feedbacks:
+            if feedback.tipo == "exercicio":
+                if feedback.gostou:
+                    preferencias["exercicios_preferidos"].append(feedback.item_nome)
+                else:
+                    preferencias["exercicios_evitar"].append(feedback.item_nome)
+            elif feedback.tipo == "refeicao":
+                if feedback.gostou:
+                    preferencias["refeicoes_preferidas"].append(feedback.item_nome)
+                else:
+                    preferencias["refeicoes_evitar"].append(feedback.item_nome)
+        
+        logger.info(f"Preferências carregadas para usuário {usuario_id}: "
+                   f"{len(preferencias['exercicios_evitar'])} ex. evitar, "
+                   f"{len(preferencias['refeicoes_evitar'])} ref. evitar")
+        
+        return preferencias
+        
+    except Exception as e:
+        logger.error(f"Erro ao buscar preferências: {e}")
+        return {
+            "exercicios_evitar": [],
+            "exercicios_preferidos": [],
+            "refeicoes_evitar": [],
+            "refeicoes_preferidas": []
+        }
 
 
 def generate_training_plan(
@@ -143,6 +209,7 @@ def generate_training_plan(
     disponibilidade: int,
     local: str,
     objetivo: str,
+    preferencias: Optional[dict] = None,
 ) -> Dict[str, Any]:
 
     altura_metros = altura / 100
@@ -189,14 +256,44 @@ def generate_training_plan(
         ESTRUTURA ESPERADA:
         $JSON_EXAMPLE
 
-        OBSERVAÇÃO: Os valores dentro do JSON_EXAMPLE são APENAS exemplos de formato e valores;
-        não limite as opções de receitas, nomes, ou campos similares apenas ao que aparece
-        nesse exemplo — gere variações e substitua valores por opções relevantes ao usuário. Você deve sugerir sugestões diferentes e variadas.
+        nesse exemplo — gere variações e substitua valores por opções relevantes ao usuário. 
+        
+        IMPORTANTE SOBRE AS REFEIÇÕES:
+        - SEJA CRIATIVO! Não repita sempre "Banana com aveia" ou "Frango com batata doce".
+        - Varie as fontes de proteína (ovos, iogurte, atum, carne moída, whey, queijo cottage, tofu, lentilha).
+        - Varie as fontes de carboidrato (pão, tapioca, cuscuz, macarrão, arroz, batata inglesa, mandioca, frutas variadas).
+        - Considere opções práticas e saborosas.
+        - Tente surpreender com combinações diferentes, mas acessíveis.
+        $PREFERENCIAS
 
         COMECE COM { E TERMINE COM } - NADA MAIS!
     """
     )
+    
+    preferencias_text = ""
+    if preferencias:
+        if preferencias.get("exercicios_evitar"):
+            exercicios_evitar = ", ".join(preferencias["exercicios_evitar"][:10])  # Limitar a 10
+            preferencias_text += f"""
 
+RESTRIÇÃO CRÍTICA - EXERCÍCIOS PROIBIDOS:
+O usuário JÁ TESTOU e NÃO GOSTOU dos seguintes exercícios. JAMAIS os inclua:
+{exercicios_evitar}
+
+Substitua por exercícios alternativos que trabalhem os mesmos grupos musculares.
+"""
+        
+        if preferencias.get("refeicoes_evitar"):
+            refeicoes_evitar = ", ".join(preferencias["refeicoes_evitar"][:10])
+            preferencias_text += f"""
+
+RESTRIÇÃO CRÍTICA - REFEIÇÕES PROIBIDAS:
+O usuário NÃO GOSTA das seguintes refeições/ingredientes. EVITE COMPLETAMENTE:
+{refeicoes_evitar}
+
+Sugira alternativas diferentes com outras proteínas e carboidratos.
+"""
+    
     prompt = prompt_template.substitute(
         NOME=nome,
         ALTURA=altura,
@@ -207,6 +304,7 @@ def generate_training_plan(
         LOCAL=local_descricao,
         OBJETIVO=objetivo_descricao,
         JSON_EXAMPLE=JSON_EXAMPLE,
+        PREFERENCIAS=preferencias_text,
     )
 
     try:

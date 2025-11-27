@@ -4,8 +4,8 @@ from sqlalchemy.orm import relationship
 from app.database.base import Base
 
 
-class Rotina(Base):
-    __tablename__ = "rotinas"
+class Plano(Base):
+    __tablename__ = "planos"
 
     id = Column(Integer, primary_key=True, index=True)
     nome = Column(String, nullable=False, index=True)
@@ -15,34 +15,33 @@ class Rotina(Base):
 
     # Relações
     dias = relationship(
-        "DiaTreino", back_populates="rotina", cascade="all, delete-orphan"
+        "PlanoDia", back_populates="plano", cascade="all, delete-orphan"
     )
-    sugestoes_nutricionais = relationship(
-        "Refeicao", back_populates="rotina", cascade="all, delete-orphan"
+    refeicoes = relationship(
+        "PlanoRefeicao", back_populates="plano", cascade="all, delete-orphan"
     )
 
 
-class DiaTreino(Base):
-    __tablename__ = "dias_treino"
+class PlanoDia(Base):
+    __tablename__ = "plano_dias"
 
     id = Column(Integer, primary_key=True, index=True)
-    rotina_id = Column(Integer, ForeignKey("rotinas.id"), nullable=False, index=True)
-    identificacao = Column(String, nullable=False)
+    plano_id = Column(Integer, ForeignKey("planos.id"), nullable=False, index=True)
+    identificacao = Column(String, nullable=False)  # Ex: "Dia A"
     foco_muscular = Column(String, nullable=True)
     ordem = Column(Integer, nullable=True)
 
-    rotina = relationship("Rotina", back_populates="dias")
+    plano = relationship("Plano", back_populates="dias")
     exercicios = relationship(
-        "RotinaExercicio", back_populates="dia", cascade="all, delete-orphan"
+        "PlanoExercicio", back_populates="dia", cascade="all, delete-orphan"
     )
 
 
-class RotinaExercicio(Base):
-    __tablename__ = "rotina_exercicios"
+class PlanoExercicio(Base):
+    __tablename__ = "plano_exercicios"
 
     id = Column(Integer, primary_key=True, index=True)
-    dia_id = Column(Integer, ForeignKey("dias_treino.id"), nullable=False, index=True)
-    exercicio_id = Column(Integer, ForeignKey("exercicios.id"), nullable=True)
+    dia_id = Column(Integer, ForeignKey("plano_dias.id"), nullable=False, index=True)    
     nome = Column(String, nullable=False)
     series = Column(String, nullable=True)
     repeticoes = Column(String, nullable=True)
@@ -51,5 +50,4 @@ class RotinaExercicio(Base):
     video_url = Column(String, nullable=True)
     ordem = Column(Integer, nullable=True)
 
-    dia = relationship("DiaTreino", back_populates="exercicios")
-    exercicio = relationship("Exercicio")
+    dia = relationship("PlanoDia", back_populates="exercicios")

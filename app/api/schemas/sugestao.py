@@ -40,11 +40,12 @@ class SugestaoCreate(BaseModel):
         ..., ge=1, le=7, description="Quantas vezes por semana pode treinar (1-7)"
     )
     local: LocalTreino = Field(
-        ..., description="Local onde vai treinar (academia, casa, arLivre)"
+        ..., 
+        description="Local de treino. Opções: 'academia', 'casa', 'arLivre'"
     )
     objetivo: ObjetivoTreino = Field(
         ...,
-        description="Objetivo principal do treino (perder peso, ganhar peso, hipertrofia)",
+        description="Objetivo do treino. Opções: 'perder', 'ganhar', 'hipertrofia', 'definicao'",
     )
 
     class Config:

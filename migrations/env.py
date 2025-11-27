@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 # Importa Base e carrega todos os modelos
 from app.database.base import Base
-from app.database.models import user, exercicio, refeicoes, rotina, feedback
+from app.database.models import user, plano, catalogo_exercicio, nutricao, feedback
 from app.core.config import settings
 
 # Este é o objeto de configuração do Alembic, que fornece
@@ -23,19 +23,10 @@ config = context.config
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 # Interpreta o arquivo de configuração para logging em Python.
-# Esta linha configura os loggers.
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Adicione aqui o MetaData dos seus modelos
-# para suportar 'autogenerate'
 target_metadata = Base.metadata
-
-# outros valores da configuração, conforme a necessidade do env.py,
-# podem ser obtidos assim:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
-
 
 def run_migrations_offline() -> None:
     """Executa migrações em modo 'offline'.
@@ -73,7 +64,14 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        from sqlalchemy import text
+        connection.execute(text('SET search_path TO aican'))
+        context.configure(
+            connection=connection, 
+            target_metadata=target_metadata,
+            include_schemas=True,
+            version_table_schema='aican'
+        )
 
         with context.begin_transaction():
             context.run_migrations()

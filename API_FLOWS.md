@@ -88,10 +88,10 @@ Permite que o sistema "aprenda" com o usuário.
 
 ```mermaid
 sequenceDiagram
-    participant User as 👤 Usuário
-    participant API as ⚙️ API (FastAPI)
-    participant DB as 🗄️ Banco de Dados
-    participant AI as 🧠 Google Gemini
+    participant User as Usuário
+    participant API as API (FastAPI)
+    participant DB as Banco de Dados
+    participant AI as Google Gemini
 
     Note over User, AI: 1. Fluxo de Autenticação
     User->>API: POST /register (Dados)
@@ -102,7 +102,7 @@ sequenceDiagram
     User->>API: POST /login (Email/Pass)
     API->>DB: Valida Credenciais
     DB-->>API: OK
-    API-->>User: JWT Token 🔑
+    API-->>User: JWT Token 
 
     Note over User, AI: 2. Geração de Plano (Core)
     User->>API: POST /sugestao (Dados + Token)
@@ -112,7 +112,7 @@ sequenceDiagram
     AI-->>API: Retorna JSON do Plano
     API->>DB: Salva Plano, Exercícios e Refeições
     DB-->>API: OK
-    API-->>User: Retorna Plano Completo 📋
+    API-->>User: Retorna Plano Completo 
 
     Note over User, AI: 3. Feedback Adaptativo
     User->>API: POST /feedback (Gostei/Não Gostei)

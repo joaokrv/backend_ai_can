@@ -31,8 +31,8 @@ app.add_middleware(
         "https://aican-yile.onrender.com"
     ],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(v1_router, prefix="/api/v1")
@@ -48,6 +48,27 @@ async def root():
 async def health_check():
     """Verifica se a API está funcionando"""
     return {"status": "healthy"}
+
+
+from fastapi import Request
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import IntegrityError, OperationalError
+
+@app.exception_handler(IntegrityError)
+async def integrity_error_handler(request: Request, exc: IntegrityError):
+    logger.error(f"IntegrityError: {exc}")
+    return JSONResponse(
+        status_code=409,
+        content={"detail": "Conflito de dados. Verifique se o item já existe."},
+    )
+
+@app.exception_handler(OperationalError)
+async def operational_error_handler(request: Request, exc: OperationalError):
+    logger.error(f"OperationalError: {exc}")
+    return JSONResponse(
+        status_code=503,
+        content={"detail": "Erro de conexão com o banco de dados. Tente novamente mais tarde."},
+    )
 
 
 if __name__ == "__main__":

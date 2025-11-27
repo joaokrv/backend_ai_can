@@ -5,10 +5,12 @@ from pydantic import BaseModel, EmailStr
 
 
 class UserCreate(BaseModel):
+    email: EmailStr
+    password: str
     nome: str
     idade: int | None = None
-    altura: int | None = None  # em cm
-    peso: int | None = None  # em kg
+    altura: float | None = None  # em cm
+    peso: float | None = None  # em kg
     local_treino: str | None = None
     frequencia_semana: str | None = None
     objetivo: str | None = None
@@ -16,13 +18,15 @@ class UserCreate(BaseModel):
 
 class UserResponse(BaseModel):
     id: int
+    email: EmailStr
     nome: str
     idade: int | None
-    altura: int | None
-    peso: int | None
+    altura: float | None
+    peso: float | None
     local_treino: str | None
     frequencia_semana: str | None
     objetivo: str | None
+    is_active: bool
 
     class Config:
         from_attributes = True
@@ -31,8 +35,8 @@ class UserResponse(BaseModel):
 class UserUpdate(BaseModel):
     nome: str | None = None
     idade: int | None = None
-    altura: int | None = None
-    peso: int | None = None
+    altura: float | None = None
+    peso: float | None = None
     local_treino: str | None = None
     frequencia_semana: str | None = None
     objetivo: str | None = None

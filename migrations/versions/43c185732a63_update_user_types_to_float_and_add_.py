@@ -20,7 +20,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """Atualiza o esquema (upgrade)."""
+    """Atualiza o esquema."""
     # ### comandos gerados automaticamente pelo Alembic - ajuste se necessário! ###
     op.create_table(
         "exercicios",
@@ -148,7 +148,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    """Reverte o esquema (downgrade)."""
+    """Reverte o esquema."""
     # ### comandos gerados automaticamente pelo Alembic - ajuste se necessário! ###
     op.drop_index(op.f("ix_rotina_exercicios_id"), table_name="rotina_exercicios")
     op.drop_index(op.f("ix_rotina_exercicios_dia_id"), table_name="rotina_exercicios")

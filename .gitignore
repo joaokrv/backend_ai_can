@@ -102,4 +102,14 @@ egg-info/
 # MacOS Finder
 .AppleDouble
 
+# Test and debug files (não fazer commit)
+# test_*.py
+# verify_*.py
+# debug_*.py
+# show_*.py
+# *_test.py
+*.bat
+plano_detalhes.txt
+manual_schema_update.py
+
 # End of backend .gitignore

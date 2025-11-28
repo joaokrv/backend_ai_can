@@ -364,7 +364,7 @@ Trabalho acadêmico para fins educacionais.
 
 ## 👥 Autores
 
-- **João Victor Carvalho** - [GitHub](https://github.com/joaokrv)
+- **João Victor Carvalho** - Backend & Frontend & DB - [GitHub](https://github.com/joaokrv)
 
 ---
 

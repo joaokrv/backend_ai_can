@@ -25,10 +25,10 @@ def login_access_token(
     user = session.query(User).filter(User.email == form_data.username).first()
     if not user or not security.verify_password(form_data.password, user.hash_senha):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Email ou senha incorreta"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Email ou senha incorretos"
         )
     elif not user.is_active:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Usuário inativo")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email ou senha incorretos")
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     return {
         "access_token": security.create_access_token(

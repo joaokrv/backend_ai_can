@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, ARRAY
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, ARRAY, Float, Boolean
 from sqlalchemy.orm import relationship
 from app.database.base import Base
 
@@ -14,9 +14,15 @@ class PlanoRefeicao(Base):
     nivel = Column(String, nullable=True)  # economica, equilibrada, premium
     
     ingredientes = Column(ARRAY(String), nullable=True)
-    
+
     link_receita = Column(String, nullable=True)
     explicacao = Column(Text, nullable=True)
+
+    calorias = Column(Integer, nullable=True)
+    proteina_g = Column(Float, nullable=True)
+    carboidrato_g = Column(Float, nullable=True)
+    gordura_g = Column(Float, nullable=True)
+    macros_estimados = Column(Boolean, nullable=False, default=True, server_default="true")
 
     plano = relationship("Plano", back_populates="refeicoes")
 
@@ -32,3 +38,9 @@ class CatalogoRefeicao(Base):
     ingredientes = Column(ARRAY(String), nullable=True)
     link_receita = Column(String, nullable=True)
     explicacao = Column(Text, nullable=True)
+
+    calorias = Column(Integer, nullable=True)
+    proteina_g = Column(Float, nullable=True)
+    carboidrato_g = Column(Float, nullable=True)
+    gordura_g = Column(Float, nullable=True)
+    macros_estimados = Column(Boolean, nullable=False, default=True, server_default="true")

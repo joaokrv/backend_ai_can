@@ -1,115 +1,63 @@
-# .gitignore for backend (FastAPI/Python) and repository-level common ignores
-
-# Byte-compiled / optimized / DLL files
+# Dependências e build
 __pycache__/
 *.py[cod]
-*$py.class
-
-# C extensions
 *.so
-
-# Distribution / packaging
 *.egg-info/
 *.egg
 *.whl
 build/
 dist/
 
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Virtual environments
+# Ambientes virtuais
 venv/
 .venv/
 env/
 ENV/
-env.bak/
-venv.bak/
 
-# Python env
-.Python
-pyvenv.cfg
+# Env e segredos
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.crt
 
-# Unit test / coverage
+# Banco de dados local
+*.sqlite3
+*.db
+
+# Testes e coverage
 .pytest_cache/
 .coverage
 coverage.xml
 htmlcov/
-reports/
-
-# Mypy
 .mypy_cache/
-
-# Pyre
-.pyre/
 
 # Logs
 *.log
 logs/
 
-# Local env files
-.env
-.env.*
-env.local
-
-# Database
-*.sqlite3
-*.db
-
-# Alembic migrations
-# OBS: os arquivos de migração dentro de `migrations/versions/` devem ser versionados no Git (NÃO os ignore)
-# Ignore only compiled python files from migrations
-migrations/versions/*.pyc
-
-# FastAPI/uvicorn
-*.pid
-
-# Frontend (if present in repo)
-frontend/node_modules/
-frontend/dist/
-frontend/build/
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-package-lock.json
-pnpm-lock.yaml
-
-# IDEs and Editors
+# IDE e SO
 .vscode/
 .idea/
-*.sublime-workspace
-*.sublime-project
-
-# OS files
+*.suo
 .DS_Store
 Thumbs.db
-desktop.ini
 
-# Language specific
-*.class
-*.war
-*.jar
+# Arquivos de sessão e geração de Claude
+CLAUDE.md
+.agents/
+SECURITY-AUDIT-*.md
+API_FLOWS.md
+C:\Temp\
 
-# Python packaging metadata
-egg-info/
-.ropeproject
-
-# Jupyter Notebook checkpoints
-.ipynb_checkpoints
-
-# MacOS Finder
-.AppleDouble
-
-# Test and debug files (não fazer commit)
-# test_*.py
-# verify_*.py
-# debug_*.py
-# show_*.py
-# *_test.py
+# Scripts de debug/teste avulsos
+test_*.py
+verify_*.py
+debug_*.py
 *.bat
 plano_detalhes.txt
 manual_schema_update.py
 
-# End of backend .gitignore
+# Migrations compiladas (versionar apenas os .py)
+migrations/versions/*.pyc

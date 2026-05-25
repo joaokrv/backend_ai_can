@@ -8,8 +8,17 @@ from sqlalchemy import MetaData
 
 Base = declarative_base(metadata=MetaData(schema="aican"))
 
+_connect_args: dict = {"options": "-c search_path=aican"}
+
+# Supabase e outros provedores gerenciados requerem SSL
+# sslmode=require já vem na DATABASE_URL; connect_args não deve duplicar
+if "sslmode" not in settings.DATABASE_URL:
+    _connect_args["sslmode"] = "require"
+
 engine = create_engine(
-    settings.DATABASE_URL, connect_args={"options": "-c search_path=aican"}
+    settings.DATABASE_URL,
+    connect_args=_connect_args,
+    pool_pre_ping=True,   # reconecta automaticamente se conexão cair
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

@@ -1,6 +1,7 @@
 # app/api/schemas/plano.py
 from pydantic import BaseModel
 from typing import List, Optional
+from datetime import datetime
 
 
 class ExercicioBase(BaseModel):
@@ -58,8 +59,8 @@ class PlanoDiaResponse(BaseModel):
 
 class PlanoRefeicaoCreate(BaseModel):
     nome: str
-    tipo: Optional[str] = None  # "pre_treino" ou "pos_treino"
-    nivel: Optional[str] = None  # "economica", "equilibrada", "premium"
+    tipo: Optional[str] = None
+    nivel: Optional[str] = None
     ingredientes: List[str]
     custo_estimado: Optional[str] = None
     link_receita: Optional[str] = None
@@ -69,6 +70,11 @@ class PlanoRefeicaoCreate(BaseModel):
 
 class PlanoRefeicaoResponse(PlanoRefeicaoCreate):
     id: int
+    calorias: Optional[int] = None
+    proteina_g: Optional[float] = None
+    carboidrato_g: Optional[float] = None
+    gordura_g: Optional[float] = None
+    macros_estimados: bool = False
 
     class Config:
         from_attributes = True
@@ -87,6 +93,8 @@ class PlanoResponse(BaseModel):
     nome: str
     descricao: Optional[str] = None
     usuario_id: Optional[int] = None
+    status: str = "ativo"
+    explicacao_ia: Optional[str] = None
     dias: List[PlanoDiaResponse] = []
     sugestoes_nutricionais: List[PlanoRefeicaoResponse] = []
     created_at: Optional[str] = None
@@ -94,6 +102,24 @@ class PlanoResponse(BaseModel):
     class Config:
         from_attributes = True
         use_enum_values = True
+
+
+class PlanoSummaryResponse(BaseModel):
+    id: int
+    nome: str
+    status: str = "ativo"
+    created_at: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class PaginatedPlanosResponse(BaseModel):
+    itens: List[PlanoSummaryResponse]
+    total: int
+    pagina: int
+    limite: int
+    paginas: int
 
 
 class PlanoUpdate(BaseModel):
@@ -105,12 +131,11 @@ class PlanoUpdate(BaseModel):
 
 class PlanoDetailResponse(PlanoResponse):
     """Resposta completa com todos os detalhes do plano."""
-
     pass
 
 
 class PlanoIAResponse(BaseModel):
     """Resposta do endpoint de geração de plano com IA."""
-    plano: dict 
+    plano: dict
     status: str
     mensagem: str

@@ -1,6 +1,5 @@
-# app/services/coleta_dados.py
-
 from sqlalchemy.orm import Session
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from app.database.models.catalogo_exercicio import CatalogoExercicio
 from app.database.models.nutricao import CatalogoRefeicao
 import logging
@@ -9,62 +8,51 @@ logger = logging.getLogger(__name__)
 
 
 def salvar_exercicios_e_refeicoes(plano: dict, db: Session):
-    """
-    Salva exercícios e refeições únicos nas tabelas de catálogo.
-    """
-    logger.info("Iniciando coleta de exercícios e refeições para catálogo")
-    
-    novos_exercicios = 0
-    novas_refeicoes = 0
-
+    """Salva exercicios e refeicoes unicos no catalogo via INSERT ... ON CONFLICT DO NOTHING.
+    1 query por categoria em vez de N+1 SELECTs + N INSERTs."""
     try:
-        # Coletar Exercícios
-        dias = plano.get("dias_de_treino", [])
-        for dia in dias:
-            exercicios = dia.get("exercicios", [])
-            for ex in exercicios:
+        exercicios = []
+        nomes_ex_vistos = set()
+        for dia in plano.get("dias_de_treino", []):
+            for ex in dia.get("exercicios", []):
                 nome = ex.get("nome")
-                if not nome:
+                if not nome or nome in nomes_ex_vistos:
                     continue
-                
-                # Verifica se já existe no catálogo
-                existe = db.query(CatalogoExercicio).filter(CatalogoExercicio.nome == nome).first()
-                if not existe:
-                    novo_ex = CatalogoExercicio(
-                        nome=nome,
-                        descricao=ex.get("detalhes_execucao"),
-                        video_url=ex.get("video_url")
-                    )
-                    db.add(novo_ex)
-                    novos_exercicios += 1
+                nomes_ex_vistos.add(nome)
+                exercicios.append({
+                    "nome": nome,
+                    "descricao": ex.get("detalhes_execucao"),
+                    "video_url": ex.get("video_url"),
+                })
 
-        # Coletar Refeições
-        nutricao = plano.get("sugestoes_nutricionais", {})
+        refeicoes = []
+        nomes_ref_vistos = set()
         for tipo in ["pre_treino", "pos_treino"]:
-            opcoes = nutricao.get(tipo, {})
-            for nivel, refeicao_data in opcoes.items():
-                nome = refeicao_data.get("nome")
-                if not nome:
+            for nivel, ref_data in plano.get("sugestoes_nutricionais", {}).get(tipo, {}).items():
+                nome = ref_data.get("nome")
+                if not nome or nome in nomes_ref_vistos:
                     continue
+                nomes_ref_vistos.add(nome)
+                refeicoes.append({
+                    "nome": nome,
+                    "custo_estimado": ref_data.get("custo_estimado"),
+                    "tipo": tipo,
+                    "nivel": nivel,
+                    "ingredientes": ref_data.get("ingredientes"),
+                    "link_receita": ref_data.get("link_receita"),
+                    "explicacao": ref_data.get("explicacao"),
+                })
 
-                # Verifica se já existe no catálogo
-                existe = db.query(CatalogoRefeicao).filter(CatalogoRefeicao.nome == nome).first()
-                
-                if not existe:
-                    nova_ref = CatalogoRefeicao(
-                        nome=nome,
-                        custo_estimado=refeicao_data.get("custo_estimado"),
-                        tipo=tipo,
-                        nivel=nivel,
-                        ingredientes=refeicao_data.get("ingredientes"),
-                        link_receita=refeicao_data.get("link_receita"),
-                        explicacao=refeicao_data.get("explicacao")
-                    )
-                    db.add(nova_ref)
-                    novas_refeicoes += 1
+        if exercicios:
+            stmt = pg_insert(CatalogoExercicio).values(exercicios).on_conflict_do_nothing(index_elements=["nome"])
+            db.execute(stmt)
+        if refeicoes:
+            stmt = pg_insert(CatalogoRefeicao).values(refeicoes).on_conflict_do_nothing(index_elements=["nome"])
+            db.execute(stmt)
 
         db.commit()
-        logger.info(f"Dados coletados! Novos Exercícios: {novos_exercicios}, Novas Refeições: {novas_refeicoes}")
+        logger.info(f"Coleta concluida: {len(exercicios)} exercicios, {len(refeicoes)} refeicoes (incluindo duplicatas ignoradas)")
 
     except Exception as e:
-        logger.error(f"Erro ao coletar dados para catálogo: {e}")
+        db.rollback()
+        logger.error(f"Erro ao coletar dados para catalogo: {e}")

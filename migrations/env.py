@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 # Importa Base e carrega todos os modelos
 from app.database.base import Base
-from app.database.models import user, plano, catalogo_exercicio, nutricao, feedback
+from app.database.models import user, plano, catalogo_exercicio, nutricao, feedback, refresh_token
 from app.core.config import settings
 
 # Este é o objeto de configuração do Alembic, que fornece
@@ -51,26 +51,22 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    """Executa migrações em modo 'online'.
+    """Executa migrações em modo 'online'."""
+    from sqlalchemy import create_engine
 
-    Neste cenário criamos um Engine e associamos
-    uma conexão ao contexto.
-
-    """
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
+    # Usa create_engine diretamente para garantir connect_args com search_path
+    connectable = create_engine(
+        settings.DATABASE_URL,
+        connect_args={"options": "-c search_path=aican"},
         poolclass=pool.NullPool,
     )
 
     with connectable.connect() as connection:
-        from sqlalchemy import text
-        connection.execute(text('SET search_path TO aican'))
         context.configure(
-            connection=connection, 
+            connection=connection,
             target_metadata=target_metadata,
             include_schemas=True,
-            version_table_schema='aican'
+            version_table_schema='aican',
         )
 
         with context.begin_transaction():

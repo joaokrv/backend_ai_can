@@ -1,409 +1,278 @@
-# app/services/ia_agent.py
-
 from google.genai import types
 from google.genai.client import Client as GeminiClient
 from app.core.config import settings
+from app.core.sanitizers import safe_nome, safe_item_nome, safe_lesoes
+from app.core.gemini_quota import gemini_quota
+from app.api.schemas.enums import OBJETIVO_LABELS, LOCAL_LABELS, ObjetivoTreino, LocalTreino
 from string import Template
 import re
 from urllib.parse import quote_plus
 import logging
 import json
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from tenacity import retry, stop_after_attempt, wait_exponential
-from sqlalchemy.orm import Session
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
-JSON_EXAMPLE = """{
-    "nome_da_rotina": "Ex.: Programa de Hipertrofia",
-    "dias_de_treino": [
-        {
-            "foco_muscular": "Ex.: Peito e Tríceps",
-            "identificacao": "Ex.: Dia A",
-            "exercicios": [
-                {
-                    "nome": "Ex.: Supino reto com barra",
-                    "series": "Ex.: 4x",
-                    "repeticoes": "Ex.: 8-12",
-                    "descanso_segundos": 90,
-                    "detalhes_execucao": "Ex.: Manter os ombros retraídos e controlar o movimento",
-                    "video_url": "Ex.: https://www.youtube.com/results?search_query=como+fazer+supino+reto+barra"
-                }
-            ]
-        }
-    ],
-    "sugestoes_nutricionais": {
-        "pre_treino": {
-                "opcao_economica": {
-                "nome": "Ex.: Banana com aveia",
-                "custo_estimado": "Ex.: R$ 3,00",
-                "ingredientes": ["Ex.: 1 banana", "Ex.: 2 colheres de aveia", "Ex.: 1 copo de água"],
-                "link_receita": "Ex.: https://www.google.com/search?q=como+fazer+banana+com+aveia",
-                "explicacao": "Ex.: Combinação rápida de carboidratos para energia"
-            },
-            "opcao_equilibrada": {
-                "nome": "Ex.: Pão integral com pasta de amendoim",
-                "custo_estimado": "Ex.: R$ 5,00",
-                "ingredientes": ["Ex.: 2 fatias de pão integral", "Ex.: 2 colheres de pasta de amendoim"],
-                "link_receita": "Ex.: https://www.google.com/search?q=como+fazer+pao+integral+pasta+amendoim",
-                "explicacao": "Ex.: Carboidratos e gorduras saudáveis"
-            },
-            "opcao_premium": {
-                "nome": "Ex.: Tapioca com queijo e peito de peru",
-                "custo_estimado": "Ex.: R$ 8,00",
-                "ingredientes": ["Ex.: 3 colheres de goma de tapioca", "Ex.: 30g queijo branco", "Ex.: 50g peito de peru"],
-                "link_receita": "Ex.: https://www.google.com/search?q=como+fazer+tapioca+queijo+peru",
-                "explicacao": "Ex.: Proteínas e carboidratos de qualidade"
-            }
-        },
-        "pos_treino": {
-            "opcao_economica": {
-                "nome": "Ex.: Arroz com ovo",
-                "custo_estimado": "Ex.: R$ 4,00",
-                "ingredientes": ["Ex.: 1 xícara de arroz", "2 ovos", "sal a gosto"],
-                "link_receita": "Ex.: https://www.google.com/search?q=como+fazer+arroz+com+ovo",
-                "explicacao": "Ex.: Proteína e carboidratos para recuperação"
-            },
-            "opcao_equilibrada": {
-                "nome": "Ex.: Frango grelhado com batata doce",
-                "custo_estimado": "Ex.: R$ 7,00",
-                "ingredientes": ["Ex.: 150g frango", "200g batata doce", "temperos"],
-                "link_receita": "Ex.: https://www.google.com/search?q=como+fazer+frango+batata+doce",
-                "explicacao": "Ex.: Refeição completa para recuperação muscular"
-            },
-            "opcao_premium": {
-                "nome": "Ex.: Salmão com quinoa e legumes",
-                "custo_estimado": "Ex.: R$ 15,00",
-                "ingredientes": ["Ex.: 150g salmão", "1 xícara quinoa", "legumes variados"],
-                "link_receita": "Ex.: https://www.google.com/search?q=como+fazer+salmao+quinoa+legumes",
-                "explicacao": "Ômega-3 e proteínas de alto valor biológico"
-            }
-        }
-    }
-}"""
+
+class ExercicioIA(BaseModel):
+    nome: str
+    series: str
+    repeticoes: str
+    descanso_segundos: int
+    detalhes_execucao: str
+    video_url: Optional[str] = None
+
+
+class DiaTreinoIA(BaseModel):
+    identificacao: str
+    foco_muscular: str
+    exercicios: List[ExercicioIA]
+
+
+class RefeicaoIA(BaseModel):
+    nome: str
+    custo_estimado: str
+    ingredientes: List[str]
+    link_receita: Optional[str] = None
+    explicacao: str
+    calorias: int
+    proteina_g: float
+    carboidrato_g: float
+    gordura_g: float
+
+
+class TimingNutricionalIA(BaseModel):
+    opcao_1: RefeicaoIA
+    opcao_2: RefeicaoIA
+
+
+class SugestoesNutricionaisIA(BaseModel):
+    pre_treino: TimingNutricionalIA
+    pos_treino: TimingNutricionalIA
+
+
+class PlanoIAResponseSchema(BaseModel):
+    explicacao_ia: str
+    nome_da_rotina: str
+    dias_de_treino: List[DiaTreinoIA]
+    sugestoes_nutricionais: SugestoesNutricionaisIA
 
 _gemini_client = None
 
 
 def get_gemini_client() -> GeminiClient:
-    """
-    Inicializa o cliente gemini com lazy loading.
-    Garante que a API key está configurada corretamente.
-    """
     global _gemini_client
-
     if _gemini_client is None:
         api_key = settings.GEMINI_API_KEY
         if not api_key:
-            raise ValueError("API_KEY não configurada.")
-        try:
-            _gemini_client = GeminiClient(api_key=api_key)
-            logger.info("Cliente gemini inicializado com sucesso")
-        except Exception as e:
-            logger.error(f"Erro ao inicializar gemini: {e}")
-            raise
-
+            raise ValueError("GEMINI_API_KEY nao configurada.")
+        _gemini_client = GeminiClient(api_key=api_key)
+        logger.info("Cliente Gemini inicializado")
     return _gemini_client
 
-# Tenta inicializar na importação para evitar cold start
-try:
-    if settings.GEMINI_API_KEY:
-        get_gemini_client()
-except Exception:
-    pass # Falha silenciosa na importação, erro real aparecerá na chamada
+
+def _build_search_url(query: str, target: str) -> str:
+    encoded = quote_plus(query)
+    if target == "youtube":
+        return f"https://www.youtube.com/results?search_query={encoded}"
+    return f"https://www.google.com/search?q={encoded}"
 
 
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=2, max=10),
-    reraise=True,
-)
-def _call_gemini_api(prompt: str) -> str:
-    """
-    Chama a API gemini com retry automático.
-    """
+def _ensure_search_url(url: Optional[str], query: str, target: str) -> str:
+    if not url:
+        return _build_search_url(query, target)
+    if target == "youtube" and re.search(r"youtube\.com/results\?search_query=", url):
+        return url
+    if target == "google" and re.search(r"google\.com/search\?q=", url):
+        return url
+    return _build_search_url(query, target)
 
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10), reraise=True)
+def _call_gemini_api(prompt: str, response_schema: Optional[type] = None) -> str:
+    """Chama Gemini. Quota deve ser verificada antes (fora do retry)."""
     try:
         client = get_gemini_client()
-
+        config_args = {
+            "temperature": 0.5,
+            "max_output_tokens": 8192,
+            "response_mime_type": "application/json",
+        }
+        if response_schema:
+            config_args["response_schema"] = response_schema
+            
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model=settings.GEMINI_MODEL,
             contents=prompt,
-            config=types.GenerateContentConfig(
-                temperature=0.5,
-                max_output_tokens=8192,
-                response_mime_type="application/json",
-            ),
+            config=types.GenerateContentConfig(**config_args),
         )
-
         return response.text
-
     except Exception as e:
-        logger.error(f"Erro ao chamar API gemini: {e}")
+        logger.error(f"Erro Gemini: {e}")
         if "429" in str(e):
-            raise ValueError("Serviço de IA sobrecarregado. Tente novamente em alguns instantes.")
+            raise ValueError("Servico de IA sobrecarregado. Tente novamente em alguns instantes.")
         if "500" in str(e) or "503" in str(e):
-            raise ValueError("Serviço de IA indisponível no momento.")
-        
-        raise ValueError(f"Erro na comunicação com IA: {str(e)}")
+            raise ValueError("Servico de IA indisponivel no momento.")
+        raise ValueError(f"Erro na comunicacao com IA: {str(e)}")
 
 
-def obter_preferencias_usuario(usuario_id: int, db: Session) -> dict:
-    """
-    Busca preferências do usuário baseadas em feedbacks anteriores.
-    
-    Args:
-        usuario_id: ID do usuário
-        db: Sessão do banco de dados
-    
-    Returns:
-        Dict com listas de exercícios e refeições que o usuário gostou/não gostou
-    """
-    from app.database.models.feedback import Feedback
-    
+def _sanitize_preference_list(items: list) -> str:
+    sanitized = []
+    for item in items[:10]:
+        try:
+            sanitized.append(safe_item_nome(item))
+        except ValueError:
+            continue
+    return ", ".join(sanitized)
+
+
+def _build_prompt(user, preferencias: Optional[dict]) -> str:
     try:
-        feedbacks = db.query(Feedback).filter(
-            Feedback.usuario_id == usuario_id
-        ).all()
-        
-        preferencias = {
-            "exercicios_evitar": [],
-            "exercicios_preferidos": [],
-            "refeicoes_evitar": [],
-            "refeicoes_preferidas": []
-        }
-        
-        for feedback in feedbacks:
-            if feedback.tipo == "exercicio":
-                if feedback.gostou:
-                    preferencias["exercicios_preferidos"].append(feedback.item_nome)
-                else:
-                    preferencias["exercicios_evitar"].append(feedback.item_nome)
-            elif feedback.tipo == "refeicao":
-                if feedback.gostou:
-                    preferencias["refeicoes_preferidas"].append(feedback.item_nome)
-                else:
-                    preferencias["refeicoes_evitar"].append(feedback.item_nome)
-        
-        logger.info(f"Preferências carregadas para usuário {usuario_id}: "
-                   f"{len(preferencias['exercicios_evitar'])} ex. evitar, "
-                   f"{len(preferencias['refeicoes_evitar'])} ref. evitar")
-        
-        return preferencias
-        
-    except Exception as e:
-        logger.error(f"Erro ao buscar preferências: {e}")
-        return {
-            "exercicios_evitar": [],
-            "exercicios_preferidos": [],
-            "refeicoes_evitar": [],
-            "refeicoes_preferidas": []
-        }
+        nome = safe_nome(user.nome, field_name="nome")
+    except ValueError:
+        nome = f"Usuario {user.idade}"
 
+    altura_metros = user.altura / 100
+    imc = user.peso / (altura_metros ** 2)
 
-def generate_training_plan(
-    nome: str,
-    altura: float,
-    peso: float,
-    idade: int,
-    disponibilidade: int,
-    local: str,
-    objetivo: str,
-    preferencias: Optional[dict] = None,
-) -> Dict[str, Any]:
+    try:
+        local_descricao = LOCAL_LABELS[LocalTreino(user.local_treino)]
+    except (ValueError, KeyError):
+        local_descricao = "Local nao especificado"
+    try:
+        objetivo_descricao = OBJETIVO_LABELS[ObjetivoTreino(user.objetivo)]
+    except (ValueError, KeyError):
+        objetivo_descricao = "Objetivo nao especificado"
 
-    altura_metros = altura / 100
+    sexo_descricao = user.sexo or "Nao especificado"
+    _VALID_DIA = re.compile(r"^[A-Za-z]{3,15}$")
+    dias_sanitizados = [d for d in (user.dias_disponiveis or []) if _VALID_DIA.match(str(d))]
+    dias_str = ", ".join(dias_sanitizados) if dias_sanitizados else "Nao informado"
+    duracao_str = f"{user.duracao_sessao} minutos" if user.duracao_sessao else "Nao especificado"
+    nivel_str = user.nivel_experiencia or "Iniciante"
+    num_dias = len(dias_sanitizados) if dias_sanitizados else 3
 
-    imc = peso / (altura_metros**2)
+    restricoes_text = ""
+    if user.restricoes_alimentares:
+        restricoes_text = f"RESTRICOES ALIMENTARES OBRIGATORIAS: {', '.join(user.restricoes_alimentares)}\nJAMAIS inclua alimentos que violem estas restricoes.\n"
 
-    local_map = {"academia": "Academia", "casa": "Em casa", "arLivre": "Ao ar livre"}
+    if user.lesoes_cuidados:
+        try:
+            lesoes = safe_lesoes(user.lesoes_cuidados)
+            if lesoes and lesoes.strip():
+                restricoes_text += f"RESTRICAO MEDICA: {lesoes}\nEvite exercicios que agravam isto.\n"
+        except Exception:
+            pass
 
-    objetivo_map = {
-        "perder": "Perder peso",
-        "ganhar": "Ganhar peso",
-        "hipertrofia": "Hipertrofia muscular",
-        "definicao": "Definição muscular",
-    }
-
-    local_descricao = local_map.get(local, local)
-    objetivo_descricao = objetivo_map.get(objetivo, objetivo)
-
-    prompt_template = Template(
-        """
-        Você é uma API de backend. Retorne APENAS um objeto JSON válido, sem texto antes ou depois.
-
-        DADOS DO USUÁRIO:
-        Nome: $NOME | Altura: $ALTURA cm | Peso: $PESO kg | Idade: $IDADE anos
-        IMC: $IMC | Frequência: $FREQUENCIA x/semana | Local: $LOCAL | Objetivo: $OBJETIVO
-
-        SUAS OBRIGAÇÕES:
-        1. Retornar EXCLUSIVAMENTE um JSON válido, sem introduções, comentários ou explicações
-        2. Gerar $FREQUENCIA dias de treino com 5-6 exercícios cada
-        3. Cada exercício: nome, series (texto), repeticoes (texto), descanso_segundos (número), detalhes_execucao, video_url
-        4. Incluir sugestões nutricionais com 3 opções cada (pre_treino e pos_treino)
-        5. VERIFICAR TÓDAS AS VÍRGULAS E CHAVES - JSON DEVE SER 100% VÁLIDO
-
-        REGRAS CRÍTICAS DE JSON:
-        ✓ Use aspas duplas APENAS
-        ✓ TODAS as chaves e valores string com aspas duplas
-        ✓ Números SEM aspas: "descanso_segundos": 60 (não "60")
-        ✓ VERIFIQUE cada vírgula - não pode haver vírgula antes de } ou ]
-        ✓ CADA valor string deve estar entre aspas: "valor"
-        ✓ Arrays com [],  Objects com {}
-        ✓ Sem quebras de linha dentro de strings - usar espaços normais
-        ✗ Não adicione NADA fora do JSON
-
-        ESTRUTURA ESPERADA:
-        $JSON_EXAMPLE
-
-        nesse exemplo — gere variações e substitua valores por opções relevantes ao usuário. 
-        
-        IMPORTANTE SOBRE AS REFEIÇÕES:
-        - SEJA CRIATIVO! Não repita sempre "Banana com aveia" ou "Frango com batata doce".
-        - Varie as fontes de proteína (ovos, iogurte, atum, carne moída, whey, queijo cottage, tofu, lentilha).
-        - Varie as fontes de carboidrato (pão, tapioca, cuscuz, macarrão, arroz, batata inglesa, mandioca, frutas variadas).
-        - Considere opções práticas e saborosas.
-        - Tente surpreender com combinações diferentes, mas acessíveis.
-        $PREFERENCIAS
-
-        COMECE COM { E TERMINE COM } - NADA MAIS!
-    """
-    )
-    
     preferencias_text = ""
     if preferencias:
         if preferencias.get("exercicios_evitar"):
-            exercicios_evitar = ", ".join(preferencias["exercicios_evitar"][:10])  # Limitar a 10
-            preferencias_text += f"""
-
-RESTRIÇÃO CRÍTICA - EXERCÍCIOS PROIBIDOS:
-O usuário JÁ TESTOU e NÃO GOSTOU dos seguintes exercícios. JAMAIS os inclua:
-{exercicios_evitar}
-
-Substitua por exercícios alternativos que trabalhem os mesmos grupos musculares.
-"""
-        
+            evitar = _sanitize_preference_list(preferencias["exercicios_evitar"])
+            if evitar:
+                preferencias_text += f"\nEXERCICIOS PROIBIDOS: {evitar}\nSubstituir por alternativas.\n"
         if preferencias.get("refeicoes_evitar"):
-            refeicoes_evitar = ", ".join(preferencias["refeicoes_evitar"][:10])
-            preferencias_text += f"""
+            evitar = _sanitize_preference_list(preferencias["refeicoes_evitar"])
+            if evitar:
+                preferencias_text += f"\nREFEICOES PROIBIDAS: {evitar}\nSugira alternativas diferentes.\n"
 
-RESTRIÇÃO CRÍTICA - REFEIÇÕES PROIBIDAS:
-O usuário NÃO GOSTA das seguintes refeições/ingredientes. EVITE COMPLETAMENTE:
-{refeicoes_evitar}
+    template = Template("""Voce eh uma API. Retorne APENAS JSON valido, sem texto extra.
 
-Sugira alternativas diferentes com outras proteínas e carboidratos.
-"""
-    
-    prompt = prompt_template.substitute(
+DADOS DO USUARIO:
+Nome: $NOME | Sexo: $SEXO | Altura: $ALTURA cm | Peso: $PESO kg | Idade: $IDADE anos
+IMC: $IMC | Nivel: $NIVEL_EXP
+Dias disponiveis: $DIAS_DISPONIVEIS | Duracao sessao: $DURACAO_SESSAO
+Local: $LOCAL | Objetivo: $OBJETIVO
+
+OBRIGACOES:
+1. Retorne JSON com: explicacao_ia, nome_da_rotina, dias_de_treino, sugestoes_nutricionais
+2. explicacao_ia (OBRIGATORIO): texto de 150-200 palavras justificando divisao de treino, escolha de exercicios e logica nutricional
+3. Gere EXATAMENTE $NUM_DIAS dias de treino
+4. Cada exercicio: nome, series (texto), repeticoes (texto), descanso_segundos (numero), detalhes_execucao, video_url
+5. CADA REFEICAO DEVE TER: nome, custo_estimado, ingredientes, link_receita, explicacao, calorias (numero inteiro), proteina_g (float), carboidrato_g (float), gordura_g (float)
+6. JSON 100% valido - verificar todas virgulas e chaves
+
+$RESTRICOES
+$PREFERENCIAS
+
+Exemplo de uma refeicao:
+{"nome": "Frango com batata doce", "custo_estimado": "R$$ 7,00", "ingredientes": ["150g frango", "200g batata doce"], "link_receita": "url", "explicacao": "Proteina e carbs", "calorias": 480, "proteina_g": 42.0, "carboidrato_g": 52.0, "gordura_g": 6.0}
+
+{ COMECE AQUI E TERMINE COM } - NADA MAIS!""")
+
+    return template.substitute(
         NOME=nome,
-        ALTURA=altura,
-        PESO=peso,
-        IDADE=idade,
+        SEXO=sexo_descricao,
+        ALTURA=user.altura,
+        PESO=user.peso,
+        IDADE=user.idade,
         IMC=f"{imc:.2f}",
-        FREQUENCIA=disponibilidade,
+        NIVEL_EXP=nivel_str,
+        DIAS_DISPONIVEIS=dias_str,
+        DURACAO_SESSAO=duracao_str,
+        NUM_DIAS=num_dias,
         LOCAL=local_descricao,
         OBJETIVO=objetivo_descricao,
-        JSON_EXAMPLE=JSON_EXAMPLE,
+        RESTRICOES=restricoes_text,
         PREFERENCIAS=preferencias_text,
     )
 
+
+def _normalize_plano(plano: dict) -> dict:
+    """Garante tipos corretos em descanso_segundos, video_url, link_receita, macros."""
+    for dia in plano.get("dias_de_treino", []):
+        for ex in dia.get("exercicios", []):
+            descanso = ex.get("descanso_segundos")
+            if isinstance(descanso, str) and descanso.isdigit():
+                ex["descanso_segundos"] = int(descanso)
+            elif not isinstance(descanso, int):
+                ex["descanso_segundos"] = 60
+            ex["video_url"] = _ensure_search_url(ex.get("video_url"), ex.get("nome", ""), "youtube")
+
+    for timing in ("pre_treino", "pos_treino"):
+        block = plano.get("sugestoes_nutricionais", {}).get(timing, {})
+        for key, meal in list(block.items()):
+            meal["link_receita"] = _ensure_search_url(meal.get("link_receita"), meal.get("nome") or key, "google")
+            for field in ["calorias", "proteina_g", "carboidrato_g", "gordura_g"]:
+                if field not in meal or meal[field] is None:
+                    meal[field] = 0 if field == "calorias" else 0.0
+                else:
+                    try:
+                        meal[field] = int(meal[field]) if field == "calorias" else float(meal[field])
+                    except (ValueError, TypeError):
+                        meal[field] = 0 if field == "calorias" else 0.0
+    return plano
+
+
+def _validate_plano(plano: dict) -> None:
+    if not isinstance(plano, dict):
+        raise ValueError("Resposta da IA nao eh um objeto JSON valido")
+    if "nome_da_rotina" not in plano:
+        raise ValueError("Campo obrigatorio 'nome_da_rotina' ausente")
+    if "dias_de_treino" not in plano or not isinstance(plano["dias_de_treino"], list) or not plano["dias_de_treino"]:
+        raise ValueError("Campo 'dias_de_treino' deve ser uma lista nao-vazia")
+    if "sugestoes_nutricionais" not in plano:
+        raise ValueError("Campo obrigatorio 'sugestoes_nutricionais' ausente")
+
+
+def generate_training_plan(user, preferencias: Optional[dict] = None) -> Dict[str, Any]:
+    prompt = _build_prompt(user, preferencias)
+
+    gemini_quota.check_and_increment()
+    logger.info(f"Chamando Gemini: user_id={user.id}")
+    response_text = _call_gemini_api(prompt, response_schema=PlanoIAResponseSchema)
+
     try:
-        logger.info(f"Gerando plano de treino para {nome}")
-        response_text = _call_gemini_api(prompt)
+        plano = json.loads(response_text)
+    except json.JSONDecodeError as e:
+        logger.error(f"IA retornou JSON invalido: linha {e.lineno}, col {e.colno}: {e.msg} | preview={response_text[:200]!r}")
+        raise ValueError(f"JSON invalido na linha {e.lineno}: {e.msg}")
 
-        logger.debug(
-            f"Resposta bruta da IA (primeiros 500 chars): {response_text[:500]}"
-        )
+    _validate_plano(plano)
+    if not plano.get("explicacao_ia"):
+        plano["explicacao_ia"] = "Plano personalizado gerado com base em seus dados de perfil."
 
-        try:
-            plano_dict = json.loads(response_text)
-        except json.JSONDecodeError as json_err:
-            logger.error("IA retornou JSON inválido")
-            logger.error(
-                f"Posição do erro: linha {json_err.lineno}, coluna {json_err.colno}"
-            )
-            logger.error(f"Mensagem: {json_err.msg}")
-
-            lines = response_text.split("\n")
-            if json_err.lineno <= len(lines):
-                error_line = lines[json_err.lineno - 1]
-                logger.error(f"Linha com erro: {error_line}")
-                logger.error(f"Posição: {' ' * (json_err.colno - 1)}^")
-
-            raise ValueError(
-                f"A IA retornou uma resposta com JSON inválido. "
-                f"Erro na linha {json_err.lineno}, coluna {json_err.colno}: {json_err.msg}"
-            )
-
-        if not isinstance(plano_dict, dict):
-            raise ValueError("Resposta da IA não é um objeto JSON válido")
-
-        if "nome_da_rotina" not in plano_dict:
-            raise ValueError("Campo obrigatório 'nome_da_rotina' ausente na resposta")
-
-        if "dias_de_treino" not in plano_dict:
-            raise ValueError("Campo obrigatório 'dias_de_treino' ausente na resposta")
-
-        if not isinstance(plano_dict["dias_de_treino"], list):
-            raise ValueError("Campo 'dias_de_treino' deve ser uma lista")
-
-        if len(plano_dict["dias_de_treino"]) == 0:
-            raise ValueError("Campo 'dias_de_treino' não pode estar vazio")
-
-        if "sugestoes_nutricionais" not in plano_dict:
-            raise ValueError(
-                "Campo obrigatório 'sugestoes_nutricionais' ausente na resposta"
-            )
-
-        plano = plano_dict
-
-        def ensure_search_url(url: str, query: str, target: str) -> str:
-            if not url:
-                if target == "youtube":
-                    return f"https://www.youtube.com/results?search_query=como+fazer+{quote_plus(query)}"
-                return f"https://www.google.com/search?q=como+fazer+{quote_plus(query)}"
-
-            if target == "youtube" and re.search(
-                r"youtube\.com/results\?search_query=", url
-            ):
-                return url
-            if target == "google" and re.search(r"google\.com/search\?q=", url):
-                return url
-
-            if target == "youtube":
-                return f"https://www.youtube.com/results?search_query=como+fazer+{quote_plus(query)}"
-            return f"https://www.google.com/search?q=como+fazer+{quote_plus(query)}"
-
-        if isinstance(plano, dict) and "dias_de_treino" in plano:
-            for dia in plano.get("dias_de_treino", []):
-                for ex in dia.get("exercicios", []):
-                    nome_ex = ex.get("nome", "")
-                    descanso = ex.get("descanso_segundos")
-                    if isinstance(descanso, str) and descanso.isdigit():
-                        ex["descanso_segundos"] = int(descanso)
-                    elif not isinstance(descanso, int):
-                        ex["descanso_segundos"] = 60
-
-                    ex["video_url"] = ensure_search_url(
-                        ex.get("video_url"), nome_ex, "youtube"
-                    )
-
-        if isinstance(plano, dict) and "sugestoes_nutricionais" in plano:
-            for timing in ("pre_treino", "pos_treino"):
-                block = plano["sugestoes_nutricionais"].get(timing, {})
-                for key, meal in list(block.items()):
-                    nome_ref = meal.get("nome") or key
-                    meal["link_receita"] = ensure_search_url(
-                        meal.get("link_receita"), nome_ref, "google"
-                    )
-
-        logger.info(f"Plano gerado e validado com sucesso para {nome}")
-        logger.info(f"Plano contém {len(plano['dias_de_treino'])} dias de treino")
-        return plano
-
-    except ValueError:
-        raise
-
-    except Exception as e:
-        logger.error(f"Erro inesperado ao gerar plano: {e}")
-        raise ValueError(f"Erro ao processar resposta da IA: {str(e)}")
+    plano = _normalize_plano(plano)
+    logger.info(f"Plano gerado: user_id={user.id}, {len(plano['dias_de_treino'])} dias")
+    return plano

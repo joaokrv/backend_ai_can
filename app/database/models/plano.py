@@ -1,6 +1,7 @@
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 from app.database.base import Base
 
 
@@ -10,8 +11,15 @@ class Plano(Base):
     id = Column(Integer, primary_key=True, index=True)
     nome = Column(String, nullable=False, index=True)
     descricao = Column(Text, nullable=True)
-    usuario_id = Column(Integer, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    usuario_id = Column(
+        Integer,
+        ForeignKey("aican.usuarios.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    status = Column(String(20), nullable=False, default="ativo", server_default="ativo", index=True)
+    explicacao_ia = Column(Text, nullable=True)  # "Por que esse plano?"
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     # Relações
     dias = relationship(
@@ -20,6 +28,12 @@ class Plano(Base):
     refeicoes = relationship(
         "PlanoRefeicao", back_populates="plano", cascade="all, delete-orphan"
     )
+
+    @property
+    def sugestoes_nutricionais(self):
+        # Mapeia as refeições do banco para o campo esperado pelo Pydantic
+        return self.refeicoes
+
 
 
 class PlanoDia(Base):

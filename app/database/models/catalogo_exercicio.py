@@ -3,6 +3,7 @@ from app.database.base import Base
 
 class CatalogoExercicio(Base):
     __tablename__ = "catalogo_exercicios"
+    __table_args__ = {"schema": "aican"}
 
     id = Column(Integer, primary_key=True, index=True)
     nome = Column(String, unique=True, index=True, nullable=False)

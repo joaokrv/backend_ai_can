@@ -219,6 +219,17 @@ Exemplo de uma refeicao:
     )
 
 
+_MACROS_DEFAULT = {
+    "pre_treino":  {"calorias": 250, "proteina_g": 15.0, "carboidrato_g": 35.0, "gordura_g": 5.0},
+    "pos_treino":  {"calorias": 450, "proteina_g": 35.0, "carboidrato_g": 50.0, "gordura_g": 10.0},
+    "cafe_manha":  {"calorias": 400, "proteina_g": 20.0, "carboidrato_g": 45.0, "gordura_g": 12.0},
+    "almoco":      {"calorias": 600, "proteina_g": 35.0, "carboidrato_g": 70.0, "gordura_g": 18.0},
+    "lanche":      {"calorias": 200, "proteina_g": 10.0, "carboidrato_g": 25.0, "gordura_g": 6.0},
+    "jantar":      {"calorias": 500, "proteina_g": 30.0, "carboidrato_g": 55.0, "gordura_g": 15.0},
+    "_fallback":   {"calorias": 350, "proteina_g": 20.0, "carboidrato_g": 40.0, "gordura_g": 10.0},
+}
+
+
 def _normalize_plano(plano: dict) -> dict:
     """Garante tipos corretos em descanso_segundos, video_url, link_receita, macros."""
     for dia in plano.get("dias_de_treino", []):
@@ -234,14 +245,16 @@ def _normalize_plano(plano: dict) -> dict:
         block = plano.get("sugestoes_nutricionais", {}).get(timing, {})
         for key, meal in list(block.items()):
             meal["link_receita"] = _ensure_search_url(meal.get("link_receita"), meal.get("nome") or key, "google")
+            tipo_refeicao = meal.get("tipo", "")
+            defaults = _MACROS_DEFAULT.get(tipo_refeicao, _MACROS_DEFAULT["_fallback"])
             for field in ["calorias", "proteina_g", "carboidrato_g", "gordura_g"]:
                 if field not in meal or meal[field] is None:
-                    meal[field] = 0 if field == "calorias" else 0.0
+                    meal[field] = defaults[field]
                 else:
                     try:
                         meal[field] = int(meal[field]) if field == "calorias" else float(meal[field])
                     except (ValueError, TypeError):
-                        meal[field] = 0 if field == "calorias" else 0.0
+                        meal[field] = defaults[field]
     return plano
 
 

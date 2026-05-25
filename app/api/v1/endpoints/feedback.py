@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, status, HTTPException, Request
+from fastapi import APIRouter, status, HTTPException, Request
 from sqlalchemy import func, case
 from sqlalchemy.exc import IntegrityError
 from typing import Optional
@@ -93,6 +93,7 @@ def listar_feedbacks(
     limit: int = 20,
     tipo: Optional[TipoFeedback] = None,
     gostou: Optional[bool] = None,
+    item_nome: Optional[str] = None,
 ):
     page, limit, offset = normalizar_paginacao(page, limit, max_limit=100, default_limit=20)
     query = session.query(Feedback).filter(Feedback.usuario_id == current_user.id)
@@ -100,6 +101,8 @@ def listar_feedbacks(
         query = query.filter(Feedback.tipo == tipo.value)
     if gostou is not None:
         query = query.filter(Feedback.gostou == gostou)
+    if item_nome is not None:
+        query = query.filter(Feedback.item_nome == item_nome)
     total = query.count()
     itens = query.order_by(Feedback.created_at.desc()).offset(offset).limit(limit).all()
     return PaginatedFeedbacksResponse(
@@ -130,12 +133,15 @@ def deletar_todos_feedbacks(
     session: deps.SessionDep,
     tipo: Optional[TipoFeedback] = None,
     gostou: Optional[bool] = None,
+    item_nome: Optional[str] = None,
 ):
     query = session.query(Feedback).filter(Feedback.usuario_id == current_user.id)
     if tipo is not None:
         query = query.filter(Feedback.tipo == tipo.value)
     if gostou is not None:
         query = query.filter(Feedback.gostou == gostou)
+    if item_nome is not None:
+        query = query.filter(Feedback.item_nome == item_nome)
     count = query.count()
     query.delete()
     session.commit()

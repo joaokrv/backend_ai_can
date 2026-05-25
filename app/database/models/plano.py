@@ -1,12 +1,11 @@
-from datetime import datetime
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database.base import Base
 
-
 class Plano(Base):
     __tablename__ = "planos"
+    __table_args__ = {"schema": "aican"}
 
     id = Column(Integer, primary_key=True, index=True)
     nome = Column(String, nullable=False, index=True)
@@ -18,7 +17,7 @@ class Plano(Base):
         index=True,
     )
     status = Column(String(20), nullable=False, default="ativo", server_default="ativo", index=True)
-    explicacao_ia = Column(Text, nullable=True)  # "Por que esse plano?"
+    explicacao_ia = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     # Relações
@@ -31,17 +30,15 @@ class Plano(Base):
 
     @property
     def sugestoes_nutricionais(self):
-        # Mapeia as refeições do banco para o campo esperado pelo Pydantic
         return self.refeicoes
-
-
 
 class PlanoDia(Base):
     __tablename__ = "plano_dias"
+    __table_args__ = {"schema": "aican"}
 
     id = Column(Integer, primary_key=True, index=True)
-    plano_id = Column(Integer, ForeignKey("planos.id"), nullable=False, index=True)
-    identificacao = Column(String, nullable=False)  # Ex: "Dia A"
+    plano_id = Column(Integer, ForeignKey("aican.planos.id"), nullable=False, index=True)
+    identificacao = Column(String, nullable=False)
     foco_muscular = Column(String, nullable=True)
     ordem = Column(Integer, nullable=True)
 
@@ -50,12 +47,12 @@ class PlanoDia(Base):
         "PlanoExercicio", back_populates="dia", cascade="all, delete-orphan"
     )
 
-
 class PlanoExercicio(Base):
     __tablename__ = "plano_exercicios"
+    __table_args__ = {"schema": "aican"}
 
     id = Column(Integer, primary_key=True, index=True)
-    dia_id = Column(Integer, ForeignKey("plano_dias.id"), nullable=False, index=True)    
+    dia_id = Column(Integer, ForeignKey("aican.plano_dias.id"), nullable=False, index=True)
     nome = Column(String, nullable=False)
     series = Column(String, nullable=True)
     repeticoes = Column(String, nullable=True)

@@ -5,7 +5,7 @@ import re
 
 # Padrão para nome de usuário: apenas letras (com acentos), espaços, hífen, apóstrofo
 # Exemplos válidos: "João Silva", "Maria-José", "D'Ávila", "José Luis"
-NOME_PATTERN = re.compile(r"^[A-Za-zÀ-ÿ\s\'-]{2,100}$")
+NOME_PATTERN = re.compile(r"^[A-Za-zÀ-ÿ \'-]{2,100}$")
 
 # Padrão para item_nome (exercício ou refeição): letras, números, espaços, hífen, apóstrofo
 # Exemplos válidos: "Supino Reto", "Rosca Direta 20kg", "Frango Grelhado", "Pão Integral"
@@ -14,6 +14,31 @@ ITEM_NOME_PATTERN = re.compile(r"^[A-Za-zÀ-ÿa-z0-9\s'\-\(\)\.,/#]{2,255}$")
 # Padrão para lesões/cuidados: texto mais permissivo que nome,
 # mas agressivo contra prompt injection (máx 500 chars, sem newlines/tabs)
 LESOES_PATTERN = re.compile(r"^[A-Za-zÀ-ÿ0-9\s\.,;:\-\(\)\!\?\']{0,500}$")
+
+
+def _sanitize_prompt_injection(text: str | None) -> str | None:
+    """
+    Detecta e neutraliza tentativas comuns de jailbreak/prompt injection.
+    Suporta termos em Inglês, Português, Espanhol e Francês.
+    Substitui padrões maliciosos por uma tag segura.
+    """
+    if not text:
+        return text
+    # Pattern heurístico multilíngue: ações imperativas seguidas de alvos do sistema
+    pattern = (
+        r"(?i)("
+        r"ignore|forget|disregard|override|bypass|"  # EN
+        r"esquece|esqueça|desconsidere|sobrescreva|substitua|burle|desative|"  # PT
+        r"olvida|ignora|anula|evita|desactiva|saltar|burlar|"  # ES
+        r"oublie|annule|contourne|desactive|désactive"  # FR
+        r").{0,30}("
+        r"instruction|prompt|context|above|rule|system|"  # EN
+        r"instrução|instruçao|instrucoes|instruções|comando|contexto|anterior|anteriores|acima|regra|regras|sistema|"  # PT
+        r"instruccion|instrucciones|regla|reglas|sistema|arriba|"  # ES
+        r"règle|règles|regle|regles|contexte|système|systeme|commande|commandes|précédent|precedent|precedente|ci-dessus"  # FR
+        r")"
+    )
+    return re.sub(pattern, "[FILTRADO_POR_SEGURANCA]", text)
 
 
 def safe_nome(value: str, field_name: str = "nome") -> str:
@@ -102,6 +127,9 @@ def safe_comentario(value: str, max_length: int = 500) -> str:
     if len(value) > max_length:
         raise ValueError(f"Comentário não pode exceder {max_length} caracteres")
 
+    # Neutraliza tentativas de prompt injection
+    value = _sanitize_prompt_injection(value)
+
     return value
 
 
@@ -133,5 +161,8 @@ def safe_lesoes(value: str | None) -> str | None:
             "Descrição de lesões/cuidados contém caracteres inválidos. "
             "Use apenas letras, números, espaços e pontuação básica (,.;:-()!?')"
         )
+
+    # Neutraliza tentativas de prompt injection
+    value = _sanitize_prompt_injection(value)
 
     return value
